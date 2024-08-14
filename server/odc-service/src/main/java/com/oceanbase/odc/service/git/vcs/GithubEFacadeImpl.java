@@ -24,5 +24,6 @@ public class GithubEFacadeImpl extends GithubFacadeImpl {
 
     public GithubEFacadeImpl(String host) {
         super(String.format(API_URL_FORMAT, host));
+
     }
 }

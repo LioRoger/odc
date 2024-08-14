@@ -16,6 +16,8 @@
 
 package com.oceanbase.odc.service.task.caller;
 
+import java.util.Collections;
+
 import com.oceanbase.odc.common.event.AbstractEvent;
 import com.oceanbase.odc.metadb.task.JobEntity;
 import com.oceanbase.odc.service.task.config.JobConfiguration;
@@ -24,6 +26,7 @@ import com.oceanbase.odc.service.task.config.JobConfigurationValidator;
 import com.oceanbase.odc.service.task.enums.JobCallerAction;
 import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.listener.JobCallerEvent;
+import com.oceanbase.odc.service.task.resource.ResourceID;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
 import com.oceanbase.odc.service.task.service.TaskFrameworkService;
 import com.oceanbase.odc.service.task.util.TaskExecutorClient;
@@ -138,8 +141,12 @@ public abstract class BaseJobCaller implements JobCaller {
             updateExecutorDestroyed(ji);
             return;
         }
+        ExecutorIdentifier identifier = ExecutorIdentifierParser.parser(executorIdentifier);
+        ResourceID resourceID =
+                new ResourceID(identifier.getNamespace(), identifier.getExecutorName(), Collections.emptyMap());
+
         log.info("Preparing destroy,jobId={}, executorIdentifier={}.", ji.getId(), executorIdentifier);
-        doDestroy(ji, ExecutorIdentifierParser.parser(executorIdentifier));
+        doDestroy(ji, identifier, resourceID);
     }
 
     @Override
@@ -151,24 +158,21 @@ public abstract class BaseJobCaller implements JobCaller {
         if (executorIdentifier == null) {
             return true;
         }
-        return canBeDestroy(ji, ExecutorIdentifierParser.parser(executorIdentifier));
+        ExecutorIdentifier identifier = ExecutorIdentifierParser.parser(executorIdentifier);
+        ResourceID resourceID =
+                new ResourceID(identifier.getNamespace(), identifier.getExecutorName(), Collections.emptyMap());
+        return canBeDestroy(ji, identifier, resourceID);
     }
 
-    protected abstract void doDestroy(JobIdentity ji, ExecutorIdentifier ei) throws JobException;
+    protected abstract void doDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) throws JobException;
 
-    protected abstract boolean canBeDestroy(JobIdentity ji, ExecutorIdentifier ei);
+    protected abstract boolean canBeDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID);
 
     private <T extends AbstractEvent> void publishEvent(T event) {
         JobConfiguration configuration = JobConfigurationHolder.getJobConfiguration();
         configuration.getEventPublisher().publishEvent(event);
     }
 
-    protected void destroyInternal(ExecutorIdentifier identifier) throws JobException {
-        if (identifier == null || identifier.getExecutorName() == null) {
-            return;
-        }
-        doDestroyInternal(identifier);
-    }
 
     protected void updateExecutorDestroyed(JobIdentity ji) throws JobException {
         JobConfiguration jobConfiguration = JobConfigurationHolder.getJobConfiguration();
@@ -184,8 +188,6 @@ public abstract class BaseJobCaller implements JobCaller {
     protected abstract ExecutorIdentifier doStart(JobContext context) throws JobException;
 
     protected abstract void doStop(JobIdentity ji) throws JobException;
-
-    protected abstract void doDestroyInternal(ExecutorIdentifier identifier) throws JobException;
 
     protected abstract boolean isExecutorExist(ExecutorIdentifier identifier) throws JobException;
 

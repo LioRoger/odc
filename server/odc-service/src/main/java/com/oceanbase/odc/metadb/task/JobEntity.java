@@ -126,4 +126,6 @@ public class JobEntity implements Serializable {
     @Column(name = "update_time", insertable = false, updatable = false)
     private Date updateTime;
 
+    @Column(name = "resource_id")
+    private String resourceID;
 }

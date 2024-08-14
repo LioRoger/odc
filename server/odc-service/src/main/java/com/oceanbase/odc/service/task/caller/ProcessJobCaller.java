@@ -31,6 +31,7 @@ import com.oceanbase.odc.service.task.config.JobConfiguration;
 import com.oceanbase.odc.service.task.config.JobConfigurationHolder;
 import com.oceanbase.odc.service.task.enums.JobStatus;
 import com.oceanbase.odc.service.task.exception.JobException;
+import com.oceanbase.odc.service.task.resource.ResourceID;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
 import com.oceanbase.odc.service.task.util.HttpClientUtils;
 import com.oceanbase.odc.service.task.util.JobUtils;
@@ -93,14 +94,14 @@ public class ProcessJobCaller extends BaseJobCaller {
     protected void doStop(JobIdentity ji) throws JobException {}
 
     @Override
-    protected void doDestroy(JobIdentity ji, ExecutorIdentifier ei) throws JobException {
+    protected void doDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) throws JobException {
         if (isExecutorExist(ei)) {
             long pid = Long.parseLong(ei.getNamespace());
             log.info("Found process, try kill it, pid={}.", pid);
             // first update destroy time, second destroy executor.
             // if executor failed update will be rollback, ensure distributed transaction atomicity.
             updateExecutorDestroyed(ji);
-            destroyInternal(ei);
+            doDestroyInternal(ei);
             return;
         }
 
@@ -133,7 +134,7 @@ public class ProcessJobCaller extends BaseJobCaller {
     }
 
     @Override
-    public boolean canBeDestroy(JobIdentity ji, ExecutorIdentifier ei) {
+    public boolean canBeDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) {
         if (isExecutorExist(ei)) {
             log.info("Executor be found, jobId={}, identifier={}", ji.getId(), ei);
             return true;
@@ -152,7 +153,6 @@ public class ProcessJobCaller extends BaseJobCaller {
         return false;
     }
 
-    @Override
     protected void doDestroyInternal(ExecutorIdentifier identifier) throws JobException {
         long pid = Long.parseLong(identifier.getNamespace());
         boolean result = SystemUtils.killProcessByPid(pid);

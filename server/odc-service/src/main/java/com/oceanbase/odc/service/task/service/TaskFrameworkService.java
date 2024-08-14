@@ -24,8 +24,8 @@ import org.springframework.data.domain.Page;
 import com.oceanbase.odc.metadb.task.JobEntity;
 import com.oceanbase.odc.service.task.enums.JobStatus;
 import com.oceanbase.odc.service.task.enums.TaskRunMode;
-import com.oceanbase.odc.service.task.executor.server.HeartbeatRequest;
-import com.oceanbase.odc.service.task.executor.task.TaskResult;
+import com.oceanbase.odc.service.task.executor.HeartbeatRequest;
+import com.oceanbase.odc.service.task.executor.TaskResult;
 import com.oceanbase.odc.service.task.schedule.JobDefinition;
 
 /**
