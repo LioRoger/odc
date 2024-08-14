@@ -34,13 +34,16 @@ import com.oceanbase.odc.common.event.EventPublisher;
 import com.oceanbase.odc.common.util.StringUtils;
 import com.oceanbase.odc.service.common.ConditionOnServer;
 import com.oceanbase.odc.service.objectstorage.cloud.model.CloudEnvConfigurations;
-import com.oceanbase.odc.service.task.caller.DefaultK8sJobClientSelector;
-import com.oceanbase.odc.service.task.caller.K8sJobClientSelector;
-import com.oceanbase.odc.service.task.caller.NativeK8sJobClient;
-import com.oceanbase.odc.service.task.caller.NullK8sJobClientSelector;
 import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.jasypt.DefaultJasyptEncryptorConfigProperties;
 import com.oceanbase.odc.service.task.jasypt.JasyptEncryptorConfigProperties;
+import com.oceanbase.odc.service.task.resource.ResourceType;
+import com.oceanbase.odc.service.task.resource.k8s.K8SResourceManager;
+import com.oceanbase.odc.service.task.resource.k8s.client.DefaultK8sJobClientSelector;
+import com.oceanbase.odc.service.task.resource.k8s.client.K8sJobClientSelector;
+import com.oceanbase.odc.service.task.resource.k8s.client.NativeK8sJobClient;
+import com.oceanbase.odc.service.task.resource.k8s.client.NullK8sJobClientSelector;
+import com.oceanbase.odc.service.task.resource.memory.MemoryResourceManager;
 import com.oceanbase.odc.service.task.schedule.DefaultJobCredentialProvider;
 import com.oceanbase.odc.service.task.schedule.JobCredentialProvider;
 import com.oceanbase.odc.service.task.schedule.JobDefinition;
@@ -71,18 +74,31 @@ public class TaskFrameworkConfiguration {
 
     @Lazy
     @Bean
-    @ConditionalOnMissingBean(K8sJobClientSelector.class)
-    public K8sJobClientSelector k8sJobClientSelector(@Autowired TaskFrameworkProperties taskFrameworkProperties)
+    @ConditionalOnMissingBean(K8SResourceManager.class)
+    public K8SResourceManager k8SResourceManager(@Autowired TaskFrameworkProperties taskFrameworkProperties)
             throws IOException {
         K8sProperties k8sProperties = taskFrameworkProperties.getK8sProperties();
+        K8sJobClientSelector k8sJobClientSelector;
         if (StringUtils.isBlank(k8sProperties.getKubeUrl())) {
             log.info("local task k8s cluster is not enabled.");
-            return new NullK8sJobClientSelector();
-        }
-        log.info("build k8sJobClientSelector, kubeUrl={}, namespace={}",
+            k8sJobClientSelector =  new NullK8sJobClientSelector();
+        } else {
+            log.info("build k8sJobClientSelector, kubeUrl={}, namespace={}",
                 k8sProperties.getKubeUrl(), k8sProperties.getNamespace());
-        NativeK8sJobClient nativeK8sJobClient = new NativeK8sJobClient(k8sProperties);
-        return new DefaultK8sJobClientSelector(nativeK8sJobClient);
+            NativeK8sJobClient nativeK8sJobClient = new NativeK8sJobClient(k8sProperties);
+            k8sJobClientSelector = new DefaultK8sJobClientSelector(nativeK8sJobClient);
+        }
+        // TODO(lx): impl meta store
+        return new K8SResourceManager(k8sJobClientSelector, null, k8sProperties.getPodPendingTimeoutSeconds());
+    }
+
+    @Lazy
+    @Bean
+    @ConditionalOnMissingBean(MemoryResourceManager.class)
+    public MemoryResourceManager memoryResourceManager(@Autowired TaskFrameworkProperties taskFrameworkProperties)
+        throws IOException {
+        // TODO(lx): impl meta store
+        return new MemoryResourceManager();
     }
 
     @Bean
@@ -167,5 +183,4 @@ public class TaskFrameworkConfiguration {
             }
         };
     }
-
 }

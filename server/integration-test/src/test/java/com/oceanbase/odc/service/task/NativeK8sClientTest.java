@@ -26,12 +26,12 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import com.oceanbase.odc.service.task.caller.K8sJobClient;
 import com.oceanbase.odc.service.task.caller.K8sJobResponse;
-import com.oceanbase.odc.service.task.caller.NativeK8sJobClient;
-import com.oceanbase.odc.service.task.caller.PodConfig;
 import com.oceanbase.odc.service.task.config.K8sProperties;
 import com.oceanbase.odc.service.task.exception.JobException;
+import com.oceanbase.odc.service.task.resource.k8s.PodConfig;
+import com.oceanbase.odc.service.task.resource.k8s.client.K8sJobClient;
+import com.oceanbase.odc.service.task.resource.k8s.client.NativeK8sJobClient;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
 import com.oceanbase.odc.service.task.util.JobUtils;
 import com.oceanbase.odc.test.database.TestProperties;

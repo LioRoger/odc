@@ -21,6 +21,7 @@
         <module>server/starters</module>
         <module>server/integration-test</module>
         <module>server/odc-migrate</module>
+        <module>server/odc-agent</module>
     </modules>
 
     <properties>

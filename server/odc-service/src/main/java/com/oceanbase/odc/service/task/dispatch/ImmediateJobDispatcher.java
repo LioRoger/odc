@@ -25,8 +25,6 @@ import com.oceanbase.odc.metadb.task.JobEntity;
 import com.oceanbase.odc.service.task.caller.JobCaller;
 import com.oceanbase.odc.service.task.caller.JobCallerBuilder;
 import com.oceanbase.odc.service.task.caller.JobContext;
-import com.oceanbase.odc.service.task.caller.K8sJobClient;
-import com.oceanbase.odc.service.task.caller.PodConfig;
 import com.oceanbase.odc.service.task.config.JobConfiguration;
 import com.oceanbase.odc.service.task.config.JobConfigurationHolder;
 import com.oceanbase.odc.service.task.config.JobConfigurationValidator;
@@ -36,6 +34,8 @@ import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.constants.JobEnvKeyConstants;
 import com.oceanbase.odc.service.task.enums.TaskRunMode;
 import com.oceanbase.odc.service.task.exception.JobException;
+import com.oceanbase.odc.service.task.resource.k8s.K8SResourceManager;
+import com.oceanbase.odc.service.task.resource.k8s.PodConfig;
 import com.oceanbase.odc.service.task.schedule.DefaultJobContextBuilder;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
 import com.oceanbase.odc.service.task.schedule.provider.JobImageNameProvider;
@@ -64,7 +64,8 @@ public class ImmediateJobDispatcher implements JobDispatcher {
     }
 
     @Override
-    public void modify(JobIdentity ji, String jobParametersJson) throws JobException {
+    public void modify(JobIdentity ji, String jobParametersJson)
+            throws JobException {
         JobCaller jobCaller = getJobCaller(ji, null);
         jobCaller.modify(ji, jobParametersJson);
     }
@@ -92,7 +93,6 @@ public class ImmediateJobDispatcher implements JobDispatcher {
             context = new DefaultJobContextBuilder().build(je);
         }
         if (je.getRunMode() == TaskRunMode.K8S) {
-            K8sJobClient k8sJobClient = config.getK8sJobClientSelector().select(context);
             PodConfig podConfig = createDefaultPodConfig(config.getTaskFrameworkProperties());
             Map<String, String> labels = JobPropertiesUtils.getLabels(context.getJobProperties());
             podConfig.setLabels(labels);
@@ -100,9 +100,10 @@ public class ImmediateJobDispatcher implements JobDispatcher {
             if (StringUtils.isNotBlank(regionName)) {
                 podConfig.setRegion(regionName);
             }
-            return JobCallerBuilder.buildK8sJobCaller(k8sJobClient, podConfig, context);
+            return JobCallerBuilder.buildK8sJobCaller(podConfig, context, getK8SResourceManager());
+        } else {
+            return JobCallerBuilder.buildProcessCaller(context);
         }
-        return JobCallerBuilder.buildProcessCaller(context);
     }
 
     private PodConfig createDefaultPodConfig(TaskFrameworkProperties taskFrameworkProperties) {
@@ -134,4 +135,7 @@ public class ImmediateJobDispatcher implements JobDispatcher {
         return podConfig;
     }
 
+    private K8SResourceManager getK8SResourceManager() {
+        return null;
+    }
 }

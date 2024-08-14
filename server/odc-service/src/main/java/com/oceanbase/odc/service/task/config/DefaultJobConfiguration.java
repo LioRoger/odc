@@ -24,7 +24,6 @@ import com.oceanbase.odc.service.connection.ConnectionService;
 import com.oceanbase.odc.service.objectstorage.cloud.model.CloudEnvConfigurations;
 import com.oceanbase.odc.service.schedule.ScheduleTaskService;
 import com.oceanbase.odc.service.task.TaskService;
-import com.oceanbase.odc.service.task.caller.K8sJobClientSelector;
 import com.oceanbase.odc.service.task.dispatch.JobDispatcher;
 import com.oceanbase.odc.service.task.jasypt.JasyptEncryptorConfigProperties;
 import com.oceanbase.odc.service.task.schedule.JobCredentialProvider;
@@ -63,8 +62,6 @@ public abstract class DefaultJobConfiguration implements JobConfiguration {
     protected JobDispatcher jobDispatcher;
 
     protected Scheduler daemonScheduler;
-
-    protected K8sJobClientSelector k8sJobClientSelector;
 
     protected HostUrlProvider hostUrlProvider;
 
