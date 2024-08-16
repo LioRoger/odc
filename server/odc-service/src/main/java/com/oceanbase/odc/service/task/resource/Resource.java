@@ -15,7 +15,7 @@
  */
 package com.oceanbase.odc.service.task.resource;
 
-import java.sql.Date;
+import java.util.Date;
 
 /**
  * Resource is a compute holder for task or function It may be local memory or remote machine.
@@ -32,7 +32,7 @@ public interface Resource {
     /**
      * resource type
      */
-    ResourceType type();
+    ResourceMode type();
 
     /**
      * end point
@@ -40,9 +40,12 @@ public interface Resource {
     ResourceEndPoint endpoint();
 
     /**
+     * resource state
+     */
+    ResourceState resourceState();
+
+    /**
      * create date of the resource
-     * 
-     * @return
      */
     Date createDate();
 }

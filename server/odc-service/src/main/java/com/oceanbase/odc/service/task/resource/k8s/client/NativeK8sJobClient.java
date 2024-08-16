@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.sql.Date;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -32,6 +33,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.tuple.Pair;
 
 import com.oceanbase.odc.common.util.EncodeUtils;
 import com.oceanbase.odc.common.util.StringUtils;
@@ -40,6 +42,7 @@ import com.oceanbase.odc.core.shared.Verify;
 import com.oceanbase.odc.core.shared.constant.ErrorCodes;
 import com.oceanbase.odc.service.task.config.K8sProperties;
 import com.oceanbase.odc.service.task.exception.JobException;
+import com.oceanbase.odc.service.task.resource.ResourceState;
 import com.oceanbase.odc.service.task.resource.k8s.K8sResource;
 import com.oceanbase.odc.service.task.resource.k8s.PodConfig;
 
@@ -64,6 +67,14 @@ import lombok.NonNull;
  * @since 4.2.4
  */
 public class NativeK8sJobClient implements K8sJobClient {
+
+    // pair left is resource state, right is matching list
+    private static final Pair<ResourceState, List<String>>[] K8S_PHASE_MATCHER = new Pair[] {
+            Pair.of(ResourceState.CREATING, Arrays.asList("Pending", "INIT")),
+            Pair.of(ResourceState.RUNNING, Arrays.asList("Running", "ALLOCATED")),
+            Pair.of(ResourceState.DESTROYING, Arrays.asList("Terminating", "PENDING_DELETE")),
+            Pair.of(ResourceState.UNKNOWN, Arrays.asList("unknown", "UNKNOWN"))
+    };
 
     private final K8sProperties k8sProperties;
     private static final long TIMEOUT_MILLS = 60000;
@@ -103,7 +114,8 @@ public class NativeK8sJobClient implements K8sJobClient {
             V1Pod createdJob = api.createNamespacedPod(namespace, job, null, null,
                     null, null);
             // return pod status
-            return new K8sResource(name, createdJob.getMetadata().getName(), createdJob.getStatus().getPhase(),
+            return new K8sResource(name, createdJob.getMetadata().getName(),
+                    k8sPodPhaseToResourceState(createdJob.getStatus().getPhase()),
                     createdJob.getStatus().getPodIP(), new Date(System.currentTimeMillis() / 1000));
         } catch (ApiException e) {
             if (e.getResponseBody() != null) {
@@ -132,7 +144,7 @@ public class NativeK8sJobClient implements K8sJobClient {
         }
         V1Pod v1Pod = v1PodOptional.get();
         K8sResource resource = new K8sResource(
-                namespace, arn, v1Pod.getStatus().getPhase(), v1Pod.getStatus().getPodIP(),
+                namespace, arn, k8sPodPhaseToResourceState(v1Pod.getStatus().getPhase()), v1Pod.getStatus().getPodIP(),
                 new Date(System.currentTimeMillis() / 1000));
         return Optional.of(resource);
     }
@@ -191,5 +203,17 @@ public class NativeK8sJobClient implements K8sJobClient {
 
     private String getKind() {
         return TEMPLATE_KIND_POD;
+    }
+
+    private ResourceState k8sPodPhaseToResourceState(String k8sPhase) {
+        for (Pair<ResourceState, List<String>> matcher : K8S_PHASE_MATCHER) {
+            // match each state candidate
+            for (String matchStr : matcher.getRight()) {
+                if (StringUtils.equalsIgnoreCase(matchStr, k8sPhase)) {
+                    return matcher.getLeft();
+                }
+            }
+        }
+        return ResourceState.UNKNOWN;
     }
 }

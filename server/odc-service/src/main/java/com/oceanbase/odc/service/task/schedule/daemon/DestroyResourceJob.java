@@ -25,15 +25,14 @@ import org.springframework.data.domain.Page;
 
 import com.oceanbase.odc.core.alarm.AlarmEventNames;
 import com.oceanbase.odc.core.alarm.AlarmUtils;
-import com.oceanbase.odc.metadb.task.JobEntity;
+import com.oceanbase.odc.metadb.task.ResourceEntity;
 import com.oceanbase.odc.service.task.config.JobConfiguration;
 import com.oceanbase.odc.service.task.config.JobConfigurationHolder;
 import com.oceanbase.odc.service.task.config.JobConfigurationValidator;
 import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
 import com.oceanbase.odc.service.task.constants.JobConstants;
-import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.exception.TaskRuntimeException;
-import com.oceanbase.odc.service.task.schedule.JobIdentity;
+import com.oceanbase.odc.service.task.resource.ResourceID;
 import com.oceanbase.odc.service.task.service.TaskFrameworkService;
 
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +44,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @DisallowConcurrentExecution
-public class DestroyExecutorJob implements Job {
+public class DestroyResourceJob implements Job {
 
     private JobConfiguration configuration;
 
@@ -57,44 +56,33 @@ public class DestroyExecutorJob implements Job {
         // scan terminate job
         TaskFrameworkService taskFrameworkService = configuration.getTaskFrameworkService();
         TaskFrameworkProperties taskFrameworkProperties = configuration.getTaskFrameworkProperties();
-        Page<JobEntity> jobs = taskFrameworkService.findTerminalJob(0,
+        Page<ResourceEntity> jobs = taskFrameworkService.findDestroyingResource(0,
                 taskFrameworkProperties.getSingleFetchDestroyExecutorJobRows());
         jobs.forEach(a -> {
             try {
-                destroyExecutor(taskFrameworkService, a);
+                destroyResource(a);
             } catch (Throwable e) {
                 log.warn("Try to destroy failed, jobId={}.", a.getId(), e);
             }
         });
     }
 
-    private void destroyExecutor(TaskFrameworkService taskFrameworkService, JobEntity jobEntity) {
+    private void destroyResource(ResourceEntity resourceEntity) {
         getConfiguration().getTransactionManager().doInTransactionWithoutResult(() -> {
-            JobEntity lockedEntity = taskFrameworkService.findWithPessimisticLock(jobEntity.getId());
-
-            if (lockedEntity.getStatus().isTerminated() && lockedEntity.getExecutorIdentifier() != null) {
-                log.info("Job prepare destroy executor, jobId={},status={}.", lockedEntity.getId(),
-                        lockedEntity.getStatus());
-                try {
-                    getConfiguration().getJobDispatcher().destroy(JobIdentity.of(lockedEntity.getId()));
-                } catch (JobException e) {
-                    log.warn("Destroy executor occur error, jobId={}: ", lockedEntity.getId(), e);
-                    if (e.getMessage() != null &&
-                            !e.getMessage().startsWith(JobConstants.ODC_EXECUTOR_CANNOT_BE_DESTROYED)) {
-                        AlarmUtils.alarm(AlarmEventNames.TASK_EXECUTOR_DESTROY_FAILED,
-                                MessageFormat.format("Job executor destroy failed, jobId={0}, message={1}",
-                                        lockedEntity.getId(), e.getMessage()));
-                    }
-                    throw new TaskRuntimeException(e);
+            ResourceID resourceID = new ResourceID(resourceEntity.getGroupName(), resourceEntity.getResourceName());
+            try {
+                configuration.getK8sResourceManager().destroy(resourceID);
+            } catch (Throwable e) {
+                log.warn("DestroyResourceJob destroy resource = {} failed", resourceEntity, e);
+                if (e.getMessage() != null &&
+                        !e.getMessage().startsWith(JobConstants.ODC_EXECUTOR_CANNOT_BE_DESTROYED)) {
+                    AlarmUtils.alarm(AlarmEventNames.TASK_EXECUTOR_DESTROY_FAILED,
+                            MessageFormat.format("Job executor destroy failed, resource={0}, message={1}",
+                                    resourceEntity, e.getMessage()));
                 }
-                log.info("Job destroy executor succeed, jobId={}, status={}.", lockedEntity.getId(),
-                        lockedEntity.getStatus());
-            } else if (lockedEntity.getStatus().isTerminated() && lockedEntity.getExecutorIdentifier() == null) {
-                // It is necessary to update the finish time when the job is terminated but the
-                // executorIdentifier is null, otherwise, the job cannot be released.
-                log.info("Executor not found, updating executor to destroyed,jobId={}", lockedEntity.getId());
-                taskFrameworkService.updateExecutorToDestroyed(lockedEntity.getId());
+                throw new TaskRuntimeException(e);
             }
+            log.info("Job destroy resource succeed, resource={}", resourceEntity);
         });
     }
 

@@ -22,7 +22,7 @@ package com.oceanbase.odc.service.task.resource;
  * @author longpeng.zlp
  * @date 2024/8/12 10:56
  */
-public enum ResourceType {
+public enum ResourceMode {
     // memory of current JVM
     MEMORY,
     // remote

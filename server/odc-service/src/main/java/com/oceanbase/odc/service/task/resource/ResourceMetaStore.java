@@ -36,21 +36,21 @@ public interface ResourceMetaStore {
      * @param resource
      * @return
      */
-    void createResource(Resource resource) throws Exception;
+    void saveResource(Resource resource) throws Exception;
 
     /**
      * update resource
      * 
      * @param resource
-     * @return previous resource info
+     * @return 1 if updated, 0 not updated
      */
-    Resource updateResource(Resource resource);
+    int updateResourceState(ResourceID resource, ResourceState resourceState);
 
     /**
      * remove the resource with resourceID
      * 
      * @param resourceID
-     * @return true if resource exists and been removed. false if resource not exist
+     * @return 1 if resource exists and been removed. 0 if resource not exist
      */
-    boolean deleteResource(ResourceID resourceID);
+    int deleteResource(ResourceID resourceID);
 }

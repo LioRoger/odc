@@ -15,7 +15,6 @@
  */
 package com.oceanbase.odc.service.task.service;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -79,7 +78,7 @@ public class ExecutorEndpointManager {
         }
         try {
             ResourceID resourceID = new ResourceID(executorIdentifier.getNamespace(),
-                    executorIdentifier.getExecutorName(), Collections.emptyMap());
+                    executorIdentifier.getExecutorName());
             Optional<K8sResource> resourceOptional = resourceManager.query(resourceID);
             if (resourceOptional.isPresent()) {
                 K8sResource response = resourceOptional.get();
@@ -91,7 +90,7 @@ public class ExecutorEndpointManager {
                     return executorEndpoint;
                 } else {
                     throw new RuntimeException(
-                            "Failed to get executor endpoint, pod status=" + response.getResourceStatus());
+                            "Failed to get executor endpoint, pod status=" + response.getResourceState());
                 }
             } else {
                 throw new RuntimeException("Failed to get executor endpoint, pod not exists");

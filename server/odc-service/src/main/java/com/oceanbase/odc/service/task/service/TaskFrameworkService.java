@@ -22,6 +22,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 
 import com.oceanbase.odc.metadb.task.JobEntity;
+import com.oceanbase.odc.metadb.task.ResourceEntity;
 import com.oceanbase.odc.service.task.enums.JobStatus;
 import com.oceanbase.odc.service.task.enums.TaskRunMode;
 import com.oceanbase.odc.service.task.executor.HeartbeatRequest;
@@ -50,6 +51,8 @@ public interface TaskFrameworkService {
     Page<JobEntity> findCancelingJob(int page, int size);
 
     Page<JobEntity> findTerminalJob(int page, int size);
+
+    Page<ResourceEntity> findDestroyingResource(int page, int size);
 
     JobEntity findWithPessimisticLock(Long id);
 

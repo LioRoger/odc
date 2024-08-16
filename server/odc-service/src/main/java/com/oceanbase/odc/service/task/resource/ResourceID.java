@@ -15,8 +15,6 @@
  */
 package com.oceanbase.odc.service.task.resource;
 
-import java.util.Map;
-
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -42,8 +40,4 @@ public class ResourceID {
      * name of resource.
      */
     private final String name;
-    /**
-     * tags for resource
-     */
-    private final Map<String, String> tags;
 }

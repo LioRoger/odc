@@ -50,6 +50,11 @@ import com.oceanbase.odc.service.task.util.JobPropertiesUtils;
  * @since 4.2.4
  */
 public class ImmediateJobDispatcher implements JobDispatcher {
+    private final K8SResourceManager k8SResourceManager;
+
+    public ImmediateJobDispatcher(K8SResourceManager k8SResourceManager) {
+        this.k8SResourceManager = k8SResourceManager;
+    }
 
     @Override
     public void start(JobContext context) throws JobException {
@@ -71,15 +76,15 @@ public class ImmediateJobDispatcher implements JobDispatcher {
     }
 
     @Override
-    public void destroy(JobIdentity ji) throws JobException {
+    public void finish(JobIdentity ji) throws JobException {
         JobCaller jobCaller = getJobCaller(ji, null);
-        jobCaller.destroy(ji);
+        jobCaller.finish(ji);
     }
 
     @Override
-    public boolean canBeDestroy(JobIdentity ji) {
+    public boolean canBeFinish(JobIdentity ji) {
         JobCaller jobCaller = getJobCaller(ji, null);
-        return jobCaller.canBeDestroy(ji);
+        return jobCaller.canBeFinish(ji);
     }
 
     private JobCaller getJobCaller(JobIdentity ji, JobContext context) {
@@ -100,7 +105,7 @@ public class ImmediateJobDispatcher implements JobDispatcher {
             if (StringUtils.isNotBlank(regionName)) {
                 podConfig.setRegion(regionName);
             }
-            return JobCallerBuilder.buildK8sJobCaller(podConfig, context, getK8SResourceManager());
+            return JobCallerBuilder.buildK8sJobCaller(podConfig, context, k8SResourceManager);
         } else {
             return JobCallerBuilder.buildProcessCaller(context);
         }
@@ -133,9 +138,5 @@ public class ImmediateJobDispatcher implements JobDispatcher {
         podConfig.setNodeMemInMB(k8s.getNodeMemInMB());
         podConfig.setPodPendingTimeoutSeconds(k8s.getPodPendingTimeoutSeconds());
         return podConfig;
-    }
-
-    private K8SResourceManager getK8SResourceManager() {
-        return null;
     }
 }

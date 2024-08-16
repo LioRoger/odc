@@ -27,10 +27,10 @@ import com.oceanbase.odc.common.event.LocalEventPublisher;
 import com.oceanbase.odc.service.common.model.HostProperties;
 import com.oceanbase.odc.service.connection.ConnectionService;
 import com.oceanbase.odc.service.objectstorage.cloud.model.CloudEnvConfigurations;
-import com.oceanbase.odc.service.schedule.ScheduleTaskService;
 import com.oceanbase.odc.service.task.TaskService;
 import com.oceanbase.odc.service.task.dispatch.ImmediateJobDispatcher;
 import com.oceanbase.odc.service.task.jasypt.JasyptEncryptorConfigProperties;
+import com.oceanbase.odc.service.task.resource.k8s.K8SResourceManager;
 import com.oceanbase.odc.service.task.schedule.DefaultTaskFrameworkDisabledHandler;
 import com.oceanbase.odc.service.task.schedule.JobCredentialProvider;
 import com.oceanbase.odc.service.task.schedule.StartJobRateLimiter;
@@ -61,9 +61,9 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         setJobImageNameProvider(new DefaultJobImageNameProvider(this::getTaskFrameworkProperties));
         setConnectionService(ctx.getBean(ConnectionService.class));
         setTaskService(ctx.getBean(TaskService.class));
-        setScheduleTaskService(ctx.getBean(ScheduleTaskService.class));
         setDaemonScheduler((Scheduler) ctx.getBean("taskFrameworkSchedulerFactoryBean"));
-        setJobDispatcher(new ImmediateJobDispatcher());
+        setJobDispatcher(new ImmediateJobDispatcher(ctx.getBean(K8SResourceManager.class)));
+        setK8sResourceManager(ctx.getBean(K8SResourceManager.class));
         LocalEventPublisher publisher = new LocalEventPublisher();
         TaskFrameworkService tfs = ctx.getBean(TaskFrameworkService.class);
         if (tfs instanceof StdTaskFrameworkService) {
@@ -90,6 +90,7 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
     public TaskFrameworkProperties getTaskFrameworkProperties() {
         return ctx.getBean(TaskFrameworkProperties.class);
     }
+
 
     private void initJobRateLimiter() {
         StartJobRateLimiterSupport limiterSupport = new StartJobRateLimiterSupport();

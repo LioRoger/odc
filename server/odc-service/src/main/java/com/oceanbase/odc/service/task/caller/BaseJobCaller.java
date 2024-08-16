@@ -16,8 +16,6 @@
 
 package com.oceanbase.odc.service.task.caller;
 
-import java.util.Collections;
-
 import com.oceanbase.odc.common.event.AbstractEvent;
 import com.oceanbase.odc.metadb.task.JobEntity;
 import com.oceanbase.odc.service.task.config.JobConfiguration;
@@ -76,7 +74,7 @@ public abstract class BaseJobCaller implements JobCaller {
             ExecutorIdentifier executorIdentifier, Exception ex) throws JobException {
         if (executorIdentifier != null) {
             try {
-                destroy(ji);
+                finish(ji);
             } catch (JobException e) {
                 // if destroy failed, domain job will destroy it
                 log.warn("Destroy executor {} occur exception", executorIdentifier);
@@ -128,7 +126,7 @@ public abstract class BaseJobCaller implements JobCaller {
     }
 
     @Override
-    public void destroy(JobIdentity ji) throws JobException {
+    public void finish(JobIdentity ji) throws JobException {
         JobConfigurationValidator.validComponent();
         JobConfiguration jobConfiguration = JobConfigurationHolder.getJobConfiguration();
         TaskFrameworkService taskFrameworkService = jobConfiguration.getTaskFrameworkService();
@@ -143,14 +141,15 @@ public abstract class BaseJobCaller implements JobCaller {
         }
         ExecutorIdentifier identifier = ExecutorIdentifierParser.parser(executorIdentifier);
         ResourceID resourceID =
-                new ResourceID(identifier.getNamespace(), identifier.getExecutorName(), Collections.emptyMap());
+                new ResourceID(identifier.getNamespace(), identifier.getExecutorName());
 
         log.info("Preparing destroy,jobId={}, executorIdentifier={}.", ji.getId(), executorIdentifier);
-        doDestroy(ji, identifier, resourceID);
+        doFinish(ji, identifier, resourceID);
     }
 
+
     @Override
-    public boolean canBeDestroy(JobIdentity ji) {
+    public boolean canBeFinish(JobIdentity ji) {
         JobConfiguration jobConfiguration = JobConfigurationHolder.getJobConfiguration();
         TaskFrameworkService taskFrameworkService = jobConfiguration.getTaskFrameworkService();
         JobEntity jobEntity = taskFrameworkService.find(ji.getId());
@@ -160,13 +159,22 @@ public abstract class BaseJobCaller implements JobCaller {
         }
         ExecutorIdentifier identifier = ExecutorIdentifierParser.parser(executorIdentifier);
         ResourceID resourceID =
-                new ResourceID(identifier.getNamespace(), identifier.getExecutorName(), Collections.emptyMap());
-        return canBeDestroy(ji, identifier, resourceID);
+                new ResourceID(identifier.getNamespace(), identifier.getExecutorName());
+        return canBeFinish(ji, identifier, resourceID);
     }
 
-    protected abstract void doDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) throws JobException;
+    /**
+     * detect if job on resource id can be finished
+     * 
+     * @param ji
+     * @param ei
+     * @param resourceID resource id task working on
+     * @return
+     */
+    protected abstract boolean canBeFinish(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID);
 
-    protected abstract boolean canBeDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID);
+    protected abstract void doFinish(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) throws JobException;
+
 
     private <T extends AbstractEvent> void publishEvent(T event) {
         JobConfiguration configuration = JobConfigurationHolder.getJobConfiguration();

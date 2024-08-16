@@ -16,13 +16,13 @@
 
 package com.oceanbase.odc.service.task.caller;
 
-import java.util.Collections;
 import java.util.Optional;
 
 import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.resource.Resource;
 import com.oceanbase.odc.service.task.resource.ResourceID;
-import com.oceanbase.odc.service.task.resource.ResourceType;
+import com.oceanbase.odc.service.task.resource.ResourceMode;
+import com.oceanbase.odc.service.task.resource.ResourceState;
 import com.oceanbase.odc.service.task.resource.k8s.K8SResourceManager;
 import com.oceanbase.odc.service.task.resource.k8s.K8sResource;
 import com.oceanbase.odc.service.task.resource.k8s.PodConfig;
@@ -54,7 +54,7 @@ public class K8sJobCaller extends BaseJobCaller {
     public ExecutorIdentifier doStart(JobContext context) throws JobException {
         String jobName = JobUtils.generateExecutorName(context.getJobIdentity());
         // TODO(lx): config it
-        Resource resource = resourceManager.create(ResourceType.REMOTE_K8S, jobName, defaultPodConfig);
+        Resource resource = resourceManager.create(ResourceMode.REMOTE_K8S, jobName, defaultPodConfig);
         String arn = resource.id().getName();
 
         return DefaultExecutorIdentifier.builder().namespace(defaultPodConfig.getNamespace())
@@ -65,23 +65,23 @@ public class K8sJobCaller extends BaseJobCaller {
     public void doStop(JobIdentity ji) throws JobException {}
 
     @Override
-    protected void doDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) throws JobException {
-        // update job destroyed
+    protected void doFinish(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) throws JobException {
+        // update job destroyed, let scheduler DestroyExecutorJob scan and destroy it
+        resourceManager.release(resourceID);
         updateExecutorDestroyed(ji);
-        resourceManager.destroy(resourceID);
+        // resourceManager.destroy(resourceID);
     }
 
     @Override
-    protected boolean canBeDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) {
+    protected boolean canBeFinish(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) {
         return resourceManager.canBeDestroyed(resourceID);
     }
 
     @Override
     protected boolean isExecutorExist(ExecutorIdentifier identifier) throws JobException {
         ResourceID resourceID =
-                new ResourceID(identifier.getNamespace(), identifier.getExecutorName(), Collections.emptyMap());
+                new ResourceID(identifier.getNamespace(), identifier.getExecutorName());
         Optional<K8sResource> executorOptional = resourceManager.query(resourceID);
-        return executorOptional.isPresent() &&
-                PodStatus.of(executorOptional.get().getResourceStatus()) != PodStatus.TERMINATING;
+        return executorOptional.isPresent() && !ResourceState.isDestroying(executorOptional.get().getResourceState());
     }
 }

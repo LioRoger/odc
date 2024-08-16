@@ -16,6 +16,7 @@
 package com.oceanbase.odc.service.task.resource;
 
 import lombok.AllArgsConstructor;
+import lombok.Data;
 
 /**
  * endpoint of resource
@@ -24,6 +25,7 @@ import lombok.AllArgsConstructor;
  * @date 2024/8/12 11:10
  */
 @AllArgsConstructor
+@Data
 public class ResourceEndPoint {
     private final String resourceURL;
 }

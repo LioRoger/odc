@@ -15,14 +15,13 @@
  */
 package com.oceanbase.odc.service.task.resource.k8s;
 
-import java.sql.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Date;
 
 import com.oceanbase.odc.service.task.resource.Resource;
 import com.oceanbase.odc.service.task.resource.ResourceEndPoint;
 import com.oceanbase.odc.service.task.resource.ResourceID;
-import com.oceanbase.odc.service.task.resource.ResourceType;
+import com.oceanbase.odc.service.task.resource.ResourceMode;
+import com.oceanbase.odc.service.task.resource.ResourceState;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -47,9 +46,9 @@ public class K8sResource implements Resource {
     private String arn;
 
     /**
-     * pod status
+     * resource state
      */
-    private String resourceStatus;
+    private ResourceState resourceState;
 
     /**
      * pod ip address
@@ -60,16 +59,12 @@ public class K8sResource implements Resource {
 
     @Override
     public ResourceID id() {
-        Map<String, String> tags = new HashMap<>();
-        tags.put("region", region);
-        tags.put("arn", arn);
-        tags.put("podIpAddress", podIpAddress);
-        return new ResourceID(region, arn, tags);
+        return new ResourceID(region, arn);
     }
 
     @Override
-    public ResourceType type() {
-        return ResourceType.MEMORY;
+    public ResourceMode type() {
+        return ResourceMode.MEMORY;
     }
 
     @Override
@@ -80,6 +75,11 @@ public class K8sResource implements Resource {
                 .append(arn).append("::")
                 .append(podIpAddress);
         return new ResourceEndPoint(sb.toString());
+    }
+
+    @Override
+    public ResourceState resourceState() {
+        return resourceState;
     }
 
     @Override

@@ -61,6 +61,8 @@ import com.oceanbase.odc.metadb.task.JobAttributeEntity;
 import com.oceanbase.odc.metadb.task.JobAttributeRepository;
 import com.oceanbase.odc.metadb.task.JobEntity;
 import com.oceanbase.odc.metadb.task.JobRepository;
+import com.oceanbase.odc.metadb.task.ResourceEntity;
+import com.oceanbase.odc.metadb.task.ResourceRepository;
 import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
 import com.oceanbase.odc.service.task.constants.JobAttributeEntityColumn;
 import com.oceanbase.odc.service.task.constants.JobEntityColumn;
@@ -73,6 +75,7 @@ import com.oceanbase.odc.service.task.executor.TaskResult;
 import com.oceanbase.odc.service.task.listener.DefaultJobProcessUpdateEvent;
 import com.oceanbase.odc.service.task.listener.JobTerminateEvent;
 import com.oceanbase.odc.service.task.processor.DLMResultProcessor;
+import com.oceanbase.odc.service.task.resource.ResourceState;
 import com.oceanbase.odc.service.task.schedule.JobDefinition;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
 import com.oceanbase.odc.service.task.util.JobDateUtils;
@@ -98,6 +101,8 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
 
     @Autowired
     private JobRepository jobRepository;
+    @Autowired
+    private ResourceRepository resourceRepository;
     @Autowired
     private JobAttributeRepository jobAttributeRepository;
     @Setter
@@ -162,6 +167,15 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
                 .and(SpecificationUtil.columnIsNull(JobEntityColumn.EXECUTOR_DESTROYED_TIME))
                 .and(getExecutorSpec());
         return page(condition, page, size);
+    }
+
+    @Override
+    public Page<ResourceEntity> findDestroyingResource(int page, int size) {
+        Specification<ResourceEntity> specification = SpecificationUtil.columnLate(ResourceEntity.CREATE_TIME,
+                JobDateUtils.getCurrentDateSubtractDays(RECENT_DAY));
+        Specification<ResourceEntity> condition = Specification.where(specification)
+                .and(SpecificationUtil.columnIn(ResourceEntity.STATUS, Lists.newArrayList(ResourceState.DESTROYING)));
+        return resourceRepository.findAll(condition, PageRequest.of(page, size));
     }
 
     @Override

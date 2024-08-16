@@ -15,14 +15,14 @@
  */
 package com.oceanbase.odc.service.task.resource.memory;
 
-import java.sql.Date;
-import java.util.Collections;
+import java.util.Date;
 import java.util.concurrent.atomic.AtomicLong;
 
 import com.oceanbase.odc.service.task.resource.Resource;
 import com.oceanbase.odc.service.task.resource.ResourceEndPoint;
 import com.oceanbase.odc.service.task.resource.ResourceID;
-import com.oceanbase.odc.service.task.resource.ResourceType;
+import com.oceanbase.odc.service.task.resource.ResourceMode;
+import com.oceanbase.odc.service.task.resource.ResourceState;
 
 /**
  * resource in memory
@@ -37,17 +37,22 @@ public class MemoryResource implements Resource {
 
     @Override
     public ResourceID id() {
-        return new ResourceID("default", "memory:" + seq, Collections.emptyMap());
+        return new ResourceID("default", "memory:" + seq);
     }
 
     @Override
-    public ResourceType type() {
-        return ResourceType.MEMORY;
+    public ResourceMode type() {
+        return ResourceMode.MEMORY;
     }
 
     @Override
     public ResourceEndPoint endpoint() {
         return new ResourceEndPoint("memory");
+    }
+
+    @Override
+    public ResourceState resourceState() {
+        return ResourceState.RUNNING;
     }
 
     @Override

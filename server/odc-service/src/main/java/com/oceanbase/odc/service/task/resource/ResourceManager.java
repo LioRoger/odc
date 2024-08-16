@@ -30,12 +30,12 @@ public interface ResourceManager {
      * current only use resource type to determinate which type should be created create may not real
      * create
      * 
-     * @param resourceType resource type
+     * @param resourceMode resource type
      * @param jobName job name who requiring the resource
      * @param resourceConfig resource config
      * @return resource, may not available, maybe creating
      */
-    Resource create(ResourceType resourceType, String jobName, ResourceConfig resourceConfig) throws JobException;
+    Resource create(ResourceMode resourceMode, String jobName, ResourceConfig resourceConfig) throws JobException;
 
     /**
      * query if resource existed

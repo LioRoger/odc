@@ -23,15 +23,31 @@ package com.oceanbase.odc.service.task.resource;
  */
 public enum ResourceState {
     // when submit create resource request, resource not available yet
+    // k8s pending/container creating / init
     CREATING,
     // resource is created, compute resource available
     // task will only yield to resource with state running
+    // k8s running
     RUNNING,
     // when submit destroy resource request
     // resource will be shut down even there is task running on it
+    // k8s terminating
     DESTROYING,
     // resource has destroyed
+    // k8s succeed/ completed
     DESTROYED,
+    // resource in error state
+    // k8s failed / err state / node lost / evicted
+    ERROR_STATE,
     // no available, eg machine is down or network unreachable
-    UNAVAILABLE
+    // k8s unknown
+    UNKNOWN;
+
+    public static boolean isDestroying(ResourceState resourceState) {
+        return resourceState == DESTROYING || resourceState == DESTROYED;
+    }
+
+    public static boolean isPreparing(ResourceState resourceState) {
+        return resourceState == CREATING;
+    }
 }

@@ -19,14 +19,14 @@ import static com.oceanbase.odc.service.task.constants.JobConstants.ODC_EXECUTOR
 
 import java.util.Optional;
 
-import com.oceanbase.odc.service.task.caller.PodStatus;
 import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.resource.Resource;
 import com.oceanbase.odc.service.task.resource.ResourceConfig;
 import com.oceanbase.odc.service.task.resource.ResourceID;
 import com.oceanbase.odc.service.task.resource.ResourceManager;
 import com.oceanbase.odc.service.task.resource.ResourceMetaStore;
-import com.oceanbase.odc.service.task.resource.ResourceType;
+import com.oceanbase.odc.service.task.resource.ResourceMode;
+import com.oceanbase.odc.service.task.resource.ResourceState;
 import com.oceanbase.odc.service.task.resource.k8s.client.K8sJobClient;
 import com.oceanbase.odc.service.task.resource.k8s.client.K8sJobClientSelector;
 
@@ -45,12 +45,20 @@ public class K8SResourceManager implements ResourceManager {
     private final long podPendingTimeoutSeconds;
 
     @Override
-    public Resource create(ResourceType resourceType, String jobName, ResourceConfig resourceConfig)
+    public Resource create(ResourceMode resourceMode, String jobName, ResourceConfig resourceConfig)
             throws JobException {
         K8sJobClient k8sJobClient = selectK8sClient(resourceConfig.resourceGroup());
         PodConfig podConfig = (PodConfig) resourceConfig;
-        return k8sJobClient.create(podConfig.getNamespace(), jobName, podConfig.getImage(),
+        Resource ret = k8sJobClient.create(podConfig.getNamespace(), jobName, podConfig.getImage(),
                 podConfig.getCommand(), podConfig);
+        try {
+            resourceMetaStore.saveResource(ret);
+        } catch (Throwable e) {
+            // release resource if save db failed
+            k8sJobClient.delete(ret.id().getGroup(), ret.id().getName());
+            throw new JobException("save resource to meta store failed", e);
+        }
+        return ret;
     }
 
     @Override
@@ -68,8 +76,22 @@ public class K8SResourceManager implements ResourceManager {
             throw new JobException(ODC_EXECUTOR_CANNOT_BE_DESTROYED +
                     "Destroy pod failed, resource {}", resourceID);
         }
+        // first destroy
         K8sJobClient k8sJobClient = selectK8sClient(resourceID.getGroup());
-        return k8sJobClient.delete(resourceID.getGroup(), resourceID.getName());
+        String ret = k8sJobClient.delete(resourceID.getGroup(), resourceID.getName());
+        // then update db status
+        resourceMetaStore.updateResourceState(resourceID, ResourceState.DESTROYING);
+        return ret;
+    }
+
+    /**
+     * release resource, currently mark resource as destroying
+     * 
+     * @param resourceID
+     */
+    public void release(ResourceID resourceID) {
+        // update resource state to destroying
+        resourceMetaStore.updateResourceState(resourceID, ResourceState.DESTROYING);
     }
 
     @Override
@@ -84,12 +106,12 @@ public class K8SResourceManager implements ResourceManager {
             return false;
         }
         if (query.isPresent()) {
-            if (PodStatus.PENDING == PodStatus.of(query.get().getResourceStatus())) {
+            if (ResourceState.isPreparing(query.get().getResourceState())) {
                 if (getResourceCreateTimeInSeconds(resourceID) <= podPendingTimeoutSeconds) {
                     // Pod cannot be deleted when pod pending is not timeout,
                     // so throw exception representative cannot delete
                     log.warn("Cannot destroy pod, pending is not timeout, resourceID={},  podStatus={}",
-                            resourceID, query.get().getResourceStatus());
+                            resourceID, query.get().getResourceState());
                     return false;
                 }
             }

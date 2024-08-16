@@ -94,7 +94,7 @@ public class ProcessJobCaller extends BaseJobCaller {
     protected void doStop(JobIdentity ji) throws JobException {}
 
     @Override
-    protected void doDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) throws JobException {
+    protected void doFinish(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) throws JobException {
         if (isExecutorExist(ei)) {
             long pid = Long.parseLong(ei.getNamespace());
             log.info("Found process, try kill it, pid={}.", pid);
@@ -133,8 +133,7 @@ public class ProcessJobCaller extends BaseJobCaller {
                 + " may not on this machine, jodId={0}, identifier={1}", ji.getId(), ei);
     }
 
-    @Override
-    public boolean canBeDestroy(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) {
+    public boolean canBeFinish(JobIdentity ji, ExecutorIdentifier ei, ResourceID resourceID) {
         if (isExecutorExist(ei)) {
             log.info("Executor be found, jobId={}, identifier={}", ji.getId(), ei);
             return true;

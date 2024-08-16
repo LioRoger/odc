@@ -24,7 +24,7 @@ import com.oceanbase.odc.service.task.resource.Resource;
 import com.oceanbase.odc.service.task.resource.ResourceConfig;
 import com.oceanbase.odc.service.task.resource.ResourceID;
 import com.oceanbase.odc.service.task.resource.ResourceManager;
-import com.oceanbase.odc.service.task.resource.ResourceType;
+import com.oceanbase.odc.service.task.resource.ResourceMode;
 
 /**
  * @author longpeng.zlp
@@ -35,7 +35,7 @@ public class MemoryResourceManager implements ResourceManager {
     private final LRUMap memoryResourceMap = new LRUMap(20);
 
     @Override
-    public Resource create(ResourceType resourceType, String jobName, ResourceConfig resourceConfig)
+    public Resource create(ResourceMode resourceMode, String jobName, ResourceConfig resourceConfig)
             throws JobException {
         MemoryResource ret = new MemoryResource();
         memoryResourceMap.put(ret.id(), ret);
