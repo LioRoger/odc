@@ -23,6 +23,8 @@ import com.oceanbase.odc.service.task.constants.JobEnvKeyConstants;
 import com.oceanbase.odc.service.task.enums.TaskMonitorMode;
 import com.oceanbase.odc.service.task.enums.TaskRunMode;
 import com.oceanbase.odc.service.task.jasypt.JasyptEncryptorConfigProperties;
+import com.oceanbase.odc.service.task.resource.k8s.K8SResourceManager;
+import com.oceanbase.odc.service.task.resource.k8s.PodConfig;
 import com.oceanbase.odc.service.task.util.JobPropertiesUtils;
 import com.oceanbase.odc.service.task.util.JobUtils;
 
@@ -48,7 +50,8 @@ public class JobCallerBuilder {
         return new ProcessJobCaller(config);
     }
 
-    public static JobCaller buildK8sJobCaller(K8sJobClient k8sJobClient, PodConfig podConfig, JobContext context) {
+    public static JobCaller buildK8sJobCaller(PodConfig podConfig, JobContext context,
+            K8SResourceManager resourceManager) {
         Map<String, String> environments = new JobEnvironmentFactory().build(context, TaskRunMode.K8S);
 
         // common environment variables
@@ -82,6 +85,6 @@ public class JobCallerBuilder {
         JobUtils.encryptEnvironments(environments);
 
         podConfig.setEnvironments(environments);
-        return new K8sJobCaller(k8sJobClient, podConfig);
+        return new K8sJobCaller(podConfig, resourceManager);
     }
 }
