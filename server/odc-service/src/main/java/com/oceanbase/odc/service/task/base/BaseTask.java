@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import com.oceanbase.odc.service.objectstorage.cloud.CloudObjectStorageService;
 import com.oceanbase.odc.service.objectstorage.cloud.model.ObjectStorageConfiguration;
@@ -28,6 +29,8 @@ import com.oceanbase.odc.service.task.caller.DefaultJobContext;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.enums.JobStatus;
 import com.oceanbase.odc.service.task.executor.TaskMonitor;
+import com.oceanbase.odc.service.task.executor.task.ExceptionListener;
+import com.oceanbase.odc.service.task.executor.task.TaskContext;
 import com.oceanbase.odc.service.task.util.CloudObjectStorageServiceBuilder;
 import com.oceanbase.odc.service.task.util.JobUtils;
 
@@ -39,22 +42,24 @@ import lombok.extern.slf4j.Slf4j;
  * @date 2023/11/22 20:16
  */
 @Slf4j
-public abstract class BaseTask<RESULT> implements Task<RESULT> {
+public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListener {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private JobContext context;
     private Map<String, String> jobParameters;
     private volatile JobStatus status = JobStatus.PREPARING;
     private CloudObjectStorageService cloudObjectStorageService;
+    // only save latest exception if any
+    // it will be cleaned if been fetched
+    protected AtomicReference<Throwable> latestException = new AtomicReference<>();
 
     @Getter
     private TaskMonitor taskMonitor;
 
     @Override
-    public void start(JobContext context) {
+    public void start(TaskContext taskContext) {
+        this.context = taskContext.getJobContext();
         log.info("Start task, id={}.", context.getJobIdentity().getId());
-
-        this.context = context;
 
         this.jobParameters = Collections.unmodifiableMap(context.getJobParameters());
         log.info("Init task parameters success, id={}.", context.getJobIdentity().getId());
@@ -65,12 +70,12 @@ public abstract class BaseTask<RESULT> implements Task<RESULT> {
             log.warn("Init cloud object storage service failed, id={}.", getJobId(), e);
         }
 
-        this.taskMonitor = new TaskMonitor(this, cloudObjectStorageService);
+        this.taskMonitor = createTaskMonitor();
         try {
             doInit(context);
             updateStatus(JobStatus.RUNNING);
             taskMonitor.monitor();
-            if (doStart(context)) {
+            if (doStart(context, taskContext)) {
                 updateStatus(JobStatus.DONE);
             } else {
                 updateStatus(JobStatus.FAILED);
@@ -78,9 +83,14 @@ public abstract class BaseTask<RESULT> implements Task<RESULT> {
         } catch (Throwable e) {
             log.warn("Task failed, id={}.", getJobId(), e);
             updateStatus(JobStatus.FAILED);
+            taskContext.getExceptionListener().onException(e);
         } finally {
             close();
         }
+    }
+
+    protected TaskMonitor createTaskMonitor() {
+        return new TaskMonitor(this, cloudObjectStorageService);
     }
 
     @Override
@@ -174,7 +184,7 @@ public abstract class BaseTask<RESULT> implements Task<RESULT> {
      *
      * @return return true if execute succeed, else return false
      */
-    protected abstract boolean doStart(JobContext context) throws Exception;
+    protected abstract boolean doStart(JobContext context, TaskContext taskContext) throws Exception;
 
     protected abstract void doStop() throws Exception;
 
@@ -185,5 +195,16 @@ public abstract class BaseTask<RESULT> implements Task<RESULT> {
 
     protected void afterModifiedJobParameters() throws Exception {
         // do nothing
+    }
+
+    public Throwable getError() {
+        Throwable e = latestException.getAndSet(null);
+        log.info("retrieve exception = {}", null == e ? null : e.getMessage());
+        return e;
+    }
+
+    public void onException(Throwable e) {
+        log.info("found exception", e);
+        this.latestException.set(e);
     }
 }

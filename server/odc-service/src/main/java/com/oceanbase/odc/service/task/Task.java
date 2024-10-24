@@ -19,6 +19,7 @@ import java.util.Map;
 
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.enums.JobStatus;
+import com.oceanbase.odc.service.task.executor.task.TaskContext;
 
 /**
  * Task interface. Each task should implement this interface
@@ -31,7 +32,7 @@ public interface Task<RESULT> {
     /**
      * Start current task. This method will be called by TaskExecutor for fire a task
      */
-    void start(JobContext context);
+    void start(TaskContext taskContext);
 
     /**
      * Stop current task. This method will be called TaskExecutor for stop a task

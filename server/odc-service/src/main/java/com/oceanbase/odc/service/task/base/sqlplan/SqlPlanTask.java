@@ -70,6 +70,7 @@ import com.oceanbase.odc.service.sqlplan.model.SqlPlanTaskResult;
 import com.oceanbase.odc.service.task.base.BaseTask;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.constants.JobParametersKeyConstants;
+import com.oceanbase.odc.service.task.executor.task.TaskContext;
 import com.oceanbase.odc.service.task.util.JobUtils;
 import com.oceanbase.tools.dbbrowser.parser.ParserUtil;
 import com.oceanbase.tools.dbbrowser.parser.constant.GeneralSqlType;
@@ -130,9 +131,8 @@ public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
     }
 
     @Override
-    protected boolean doStart(JobContext context) throws Exception {
+    protected boolean doStart(JobContext context, TaskContext taskContext) throws Exception {
         int index = 0;
-
         while (sqlIterator.hasNext()) {
             String sql = sqlIterator.next().getStr();
             index++;
@@ -162,6 +162,7 @@ public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
                     break;
                 }
                 log.warn("Sql task execution failed, will continue to execute next statement.", e);
+                taskContext.getExceptionListener().onException(e);
             }
         }
         result.setTotalStatements(index);

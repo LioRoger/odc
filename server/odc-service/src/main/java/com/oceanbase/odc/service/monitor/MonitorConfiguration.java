@@ -13,15 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.processor;
+package com.oceanbase.odc.service.monitor;
 
-import com.oceanbase.odc.service.task.executor.TaskResult;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
-/**
- * @Author：tinker
- * @Date: 2024/7/6 10:45
- * @Descripition:
- */
-public interface ResultProcessor {
-    void process(TaskResult result);
+import com.oceanbase.odc.service.monitor.MonitorAutoConfiguration.NonEnabledMeterManager;
+
+@Configuration
+public class MonitorConfiguration {
+
+    @Bean
+    @ConditionalOnMissingBean
+    MeterManager defaultMetricManager() {
+        return new NonEnabledMeterManager();
+    }
+
 }
