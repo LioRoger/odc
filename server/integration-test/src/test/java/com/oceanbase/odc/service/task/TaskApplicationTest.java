@@ -79,7 +79,7 @@ public class TaskApplicationTest extends BaseJobTest {
 
         try {
             Thread.sleep(60 * 1000L);
-            Task<?> task = ThreadPoolTaskExecutor.getInstance().getTask(ji);
+            Task<?> task = ThreadPoolTaskExecutor.getInstance().getTaskRuntimeInfo(ji);
             Assert.assertSame(JobStatus.DONE, task.getStatus());
         } catch (InterruptedException e) {
             throw new RuntimeException(e);

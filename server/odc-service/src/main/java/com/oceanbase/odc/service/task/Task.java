@@ -19,7 +19,6 @@ import java.util.Map;
 
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.enums.JobStatus;
-import com.oceanbase.odc.service.task.executor.task.TaskContext;
 
 /**
  * Task interface. Each task should implement this interface

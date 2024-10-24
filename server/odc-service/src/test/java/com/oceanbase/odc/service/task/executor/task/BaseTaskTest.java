@@ -24,10 +24,15 @@ import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import com.oceanbase.odc.common.util.SystemUtils;
+import com.oceanbase.odc.service.task.ExceptionListener;
+import com.oceanbase.odc.service.task.TaskContext;
+import com.oceanbase.odc.service.task.TaskEventListener;
+import com.oceanbase.odc.service.task.base.BaseTask;
 import com.oceanbase.odc.service.task.caller.DefaultJobContext;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.constants.JobEnvKeyConstants;
-import com.oceanbase.odc.service.task.executor.server.TaskMonitor;
+import com.oceanbase.odc.service.task.executor.DefaultTaskResult;
+import com.oceanbase.odc.service.task.executor.DefaultTaskResultBuilder;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
 
 /**
@@ -66,6 +71,11 @@ public class BaseTaskTest {
                 public JobContext getJobContext() {
                     return jobContext;
                 }
+
+                @Override
+                public TaskEventListener getTaskEventListener() {
+                    return Mockito.mock(TaskEventListener.class);
+                }
             });
             DefaultTaskResult taskResult = DefaultTaskResultBuilder.build(dummyBaseTask);
             DefaultTaskResultBuilder.assignErrorMessage(taskResult, dummyBaseTask);
@@ -89,6 +99,11 @@ public class BaseTaskTest {
                 @Override
                 public JobContext getJobContext() {
                     return jobContext;
+                }
+
+                @Override
+                public TaskEventListener getTaskEventListener() {
+                    return Mockito.mock(TaskEventListener.class);
                 }
             });
             DefaultTaskResult taskResult = DefaultTaskResultBuilder.build(dummyBaseTask);
@@ -115,9 +130,6 @@ public class BaseTaskTest {
             return true;
         }
 
-        protected TaskMonitor createTaskMonitor() {
-            return Mockito.mock(TaskMonitor.class);
-        }
 
         @Override
         protected void doStop() throws Exception {}

@@ -85,18 +85,18 @@ import com.oceanbase.odc.service.datasecurity.util.MaskingAlgorithmUtil;
 import com.oceanbase.odc.service.flow.task.model.DatabaseChangeParameters;
 import com.oceanbase.odc.service.flow.task.model.DatabaseChangeResult;
 import com.oceanbase.odc.service.flow.task.model.SizeAwareInputStream;
-import com.oceanbase.odc.service.objectstorage.cloud.CloudObjectStorageService;
 import com.oceanbase.odc.service.objectstorage.util.ObjectStorageUtils;
 import com.oceanbase.odc.service.session.OdcStatementCallBack;
 import com.oceanbase.odc.service.session.factory.DefaultConnectSessionFactory;
 import com.oceanbase.odc.service.session.initializer.ConsoleTimeoutInitializer;
 import com.oceanbase.odc.service.session.model.SqlExecuteResult;
+import com.oceanbase.odc.service.task.SharedStorage;
+import com.oceanbase.odc.service.task.TaskContext;
 import com.oceanbase.odc.service.task.base.BaseTask;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.constants.JobParametersKeyConstants;
 import com.oceanbase.odc.service.task.constants.JobServerUrls;
 import com.oceanbase.odc.service.task.exception.JobException;
-import com.oceanbase.odc.service.task.executor.task.TaskContext;
 import com.oceanbase.odc.service.task.util.HttpClientUtils;
 import com.oceanbase.odc.service.task.util.JobUtils;
 import com.oceanbase.tools.dbbrowser.parser.ParserUtil;
@@ -141,7 +141,7 @@ public class DatabaseChangeTask extends BaseTask<FlowTaskResult> {
     private long taskId;
 
     @Override
-    protected void doInit(JobContext context) {
+    protected void doInit(JobContext jobContext) {
         taskId = getJobContext().getJobIdentity().getId();
         log.info("Initiating database change task, taskId={}", taskId);
         this.parameters = JobUtils.fromJson(getJobParameters().get(JobParametersKeyConstants.TASK_PARAMETER_JSON_KEY),
@@ -162,7 +162,7 @@ public class DatabaseChangeTask extends BaseTask<FlowTaskResult> {
             try {
                 SizeAwareInputStream sizeAwareInputStream =
                         ObjectStorageUtils.loadObjectsForTask(this.parameters.getSqlFileObjectMetadatas(),
-                                getCloudObjectStorageService(), JobUtils.getExecutorDataPath(), -1);
+                                context.getSharedStorage(), JobUtils.getExecutorDataPath(), -1);
                 sqlTotalBytes += sizeAwareInputStream.getTotalBytes();
                 sqlInputStream = sizeAwareInputStream.getInputStream();
             } catch (IOException exception) {
@@ -429,12 +429,12 @@ public class DatabaseChangeTask extends BaseTask<FlowTaskResult> {
             OdcFileUtil.zip(String.format(zipFileRootPath), String.format("%s.zip", zipFileRootPath));
             log.info("Database change task result set was saved as local zip file, file name={}", zipFileId);
             // Public cloud scenario, need to upload files to OSS
-            CloudObjectStorageService cloudObjectStorageService = getCloudObjectStorageService();
-            if (Objects.nonNull(cloudObjectStorageService) && cloudObjectStorageService.supported()) {
+            SharedStorage sharedStorage = context.getSharedStorage();
+            if (sharedStorage.available()) {
                 File tempZipFile = new File(String.format("%s.zip", zipFileRootPath));
                 try {
-                    String objectName = cloudObjectStorageService.uploadTemp(zipFileId + ".zip", tempZipFile);
-                    zipFileDownloadUrl = cloudObjectStorageService.getBucketName() + "/" + objectName;
+                    String objectName = sharedStorage.uploadTemp(zipFileId + ".zip", tempZipFile);
+                    zipFileDownloadUrl = sharedStorage.getPathPrefix() + "/" + objectName;
                     log.info("Upload database change task result set zip file to OSS, file name={}", zipFileId);
                 } catch (Exception exception) {
                     log.warn("Upload database change task result set zip file to OSS failed, file name={}", zipFileId);

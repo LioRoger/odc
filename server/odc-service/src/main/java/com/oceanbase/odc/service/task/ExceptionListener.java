@@ -13,28 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.executor.task;
-
-import com.oceanbase.odc.service.task.caller.JobContext;
+package com.oceanbase.odc.service.task;
 
 /**
- * context for task runtime
+ * listener for exception
  * 
  * @author longpeng.zlp
- * @date 2024/10/10 17:39
+ * @date 2024/10/10 15:42
  */
-public interface TaskContext {
+public interface ExceptionListener {
     /**
-     * provide exception listener
+     * notify exception if any
      * 
-     * @return
+     * @param e
      */
-    ExceptionListener getExceptionListener();
-
-    /**
-     * provide job context
-     * 
-     * @return
-     */
-    JobContext getJobContext();
+    void onException(Throwable e);
 }

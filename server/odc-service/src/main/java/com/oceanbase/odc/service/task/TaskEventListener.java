@@ -13,22 +13,43 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.agent.runtime;
-
-import com.oceanbase.odc.service.task.base.BaseTask;
-import com.oceanbase.odc.service.task.caller.JobContext;
-import com.oceanbase.odc.service.task.schedule.JobIdentity;
+package com.oceanbase.odc.service.task;
 
 /**
- * @author gaoda.xy
- * @date 2023/11/24 11:18
+ * listen task event
+ * 
+ * @author longpeng.zlp
+ * @date 2024/10/24 11:51
  */
-public interface TaskExecutor {
+public interface TaskEventListener {
+    /**
+     * call when task start called
+     * 
+     * @param task
+     */
+    void onTaskStart(Task<?> task);
 
-    void execute(BaseTask<?> task, JobContext jc);
 
-    boolean cancel(JobIdentity ji);
+    /**
+     * call when task stop called
+     * 
+     * @param task
+     */
+    void onTaskStop(Task<?> task);
 
-    TaskRuntimeInfo getTaskRuntimeInfo(JobIdentity ji);
+
+    /**
+     * call when task modify called
+     * 
+     * @param task
+     */
+    void onTaskModify(Task<?> task);
+
+    /**
+     * call when task final closed
+     * 
+     * @param task
+     */
+    void onTaskFinalize(Task<?> task);
 
 }

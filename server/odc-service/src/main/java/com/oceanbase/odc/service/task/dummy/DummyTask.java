@@ -18,9 +18,9 @@ package com.oceanbase.odc.service.task.dummy;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
+import com.oceanbase.odc.service.task.TaskContext;
 import com.oceanbase.odc.service.task.base.BaseTask;
 import com.oceanbase.odc.service.task.caller.JobContext;
-import com.oceanbase.odc.service.task.executor.task.TaskContext;
 
 import lombok.extern.slf4j.Slf4j;
 

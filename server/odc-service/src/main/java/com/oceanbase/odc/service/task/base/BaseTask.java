@@ -18,23 +18,16 @@ package com.oceanbase.odc.service.task.base;
 import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
-import com.oceanbase.odc.service.objectstorage.cloud.CloudObjectStorageService;
-import com.oceanbase.odc.service.objectstorage.cloud.model.ObjectStorageConfiguration;
+import com.oceanbase.odc.service.task.ExceptionListener;
 import com.oceanbase.odc.service.task.Task;
+import com.oceanbase.odc.service.task.TaskContext;
 import com.oceanbase.odc.service.task.caller.DefaultJobContext;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.enums.JobStatus;
-import com.oceanbase.odc.service.task.executor.TaskMonitor;
-import com.oceanbase.odc.service.task.executor.task.ExceptionListener;
-import com.oceanbase.odc.service.task.executor.task.TaskContext;
-import com.oceanbase.odc.service.task.util.CloudObjectStorageServiceBuilder;
-import com.oceanbase.odc.service.task.util.JobUtils;
 
-import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -45,37 +38,27 @@ import lombok.extern.slf4j.Slf4j;
 public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListener {
 
     private final AtomicBoolean closed = new AtomicBoolean(false);
-    private JobContext context;
+    protected TaskContext context;
     private Map<String, String> jobParameters;
     private volatile JobStatus status = JobStatus.PREPARING;
-    private CloudObjectStorageService cloudObjectStorageService;
     // only save latest exception if any
     // it will be cleaned if been fetched
     protected AtomicReference<Throwable> latestException = new AtomicReference<>();
 
-    @Getter
-    private TaskMonitor taskMonitor;
-
     @Override
     public void start(TaskContext taskContext) {
-        this.context = taskContext.getJobContext();
-        log.info("Start task, id={}.", context.getJobIdentity().getId());
+        this.context = taskContext;
+        JobContext jobContext = taskContext.getJobContext();
+        log.info("Start task, id={}.", jobContext.getJobIdentity().getId());
 
-        this.jobParameters = Collections.unmodifiableMap(context.getJobParameters());
-        log.info("Init task parameters success, id={}.", context.getJobIdentity().getId());
+        this.jobParameters = Collections.unmodifiableMap(jobContext.getJobParameters());
+        log.info("Init task parameters success, id={}.", jobContext.getJobIdentity().getId());
 
         try {
-            initCloudObjectStorageService();
-        } catch (Exception e) {
-            log.warn("Init cloud object storage service failed, id={}.", getJobId(), e);
-        }
-
-        this.taskMonitor = createTaskMonitor();
-        try {
-            doInit(context);
+            doInit(context.getJobContext());
             updateStatus(JobStatus.RUNNING);
-            taskMonitor.monitor();
-            if (doStart(context, taskContext)) {
+            context.getTaskEventListener().onTaskStart(this);
+            if (doStart(context.getJobContext(), taskContext)) {
                 updateStatus(JobStatus.DONE);
             } else {
                 updateStatus(JobStatus.FAILED);
@@ -89,10 +72,6 @@ public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListene
         }
     }
 
-    protected TaskMonitor createTaskMonitor() {
-        return new TaskMonitor(this, cloudObjectStorageService);
-    }
-
     @Override
     public boolean stop() {
         try {
@@ -102,6 +81,9 @@ public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListene
                 doStop();
                 // doRefresh cannot execute if update status to 'canceled'.
                 updateStatus(JobStatus.CANCELING);
+            }
+            if (null != context) {
+                context.getTaskEventListener().onTaskStop(this);
             }
             return true;
         } catch (Throwable e) {
@@ -130,12 +112,10 @@ public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListene
         } catch (Exception e) {
             log.warn("Do after modified job parameters failed", e);
         }
+        if (null != context) {
+            context.getTaskEventListener().onTaskModify(this);
+        }
         return true;
-    }
-
-    private void initCloudObjectStorageService() {
-        Optional<ObjectStorageConfiguration> storageConfig = JobUtils.getObjectStorageConfiguration();
-        storageConfig.ifPresent(osc -> this.cloudObjectStorageService = CloudObjectStorageServiceBuilder.build(osc));
     }
 
     private void close() {
@@ -146,12 +126,10 @@ public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListene
                 // do nothing
             }
             log.info("Task completed, id={}, status={}.", getJobId(), getStatus());
-            taskMonitor.finalWork();
+            if (null != context) {
+                context.getTaskEventListener().onTaskFinalize(this);
+            }
         }
-    }
-
-    protected CloudObjectStorageService getCloudObjectStorageService() {
-        return cloudObjectStorageService;
     }
 
     @Override
@@ -161,7 +139,7 @@ public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListene
 
     @Override
     public JobContext getJobContext() {
-        return context;
+        return context.getJobContext();
     }
 
     protected void updateStatus(JobStatus status) {

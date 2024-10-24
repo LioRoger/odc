@@ -13,19 +13,42 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.executor.task;
+package com.oceanbase.odc.service.task;
+
+import com.oceanbase.odc.service.task.caller.JobContext;
 
 /**
- * listener for exception
+ * context for task runtime
  * 
  * @author longpeng.zlp
- * @date 2024/10/10 15:42
+ * @date 2024/10/10 17:39
  */
-public interface ExceptionListener {
+public interface TaskContext {
     /**
-     * notify exception if any
+     * provide exception listener
      * 
-     * @param e
+     * @return
      */
-    void onException(Throwable e);
+    ExceptionListener getExceptionListener();
+
+    /**
+     * provide job context
+     * 
+     * @return
+     */
+    JobContext getJobContext();
+
+    /**
+     * provide task event listener
+     * 
+     * @return
+     */
+    TaskEventListener getTaskEventListener();
+
+    /**
+     * get shared storage for task upload or download file
+     * 
+     * @return
+     */
+    SharedStorage getSharedStorage();
 }

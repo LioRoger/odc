@@ -39,7 +39,6 @@ import com.oceanbase.odc.service.common.util.OdcFileUtil;
 import com.oceanbase.odc.service.common.util.SqlUtils;
 import com.oceanbase.odc.service.connection.model.ConnectionConfig;
 import com.oceanbase.odc.service.flow.task.model.RollbackPlanTaskResult;
-import com.oceanbase.odc.service.objectstorage.cloud.CloudObjectStorageService;
 import com.oceanbase.odc.service.objectstorage.model.ObjectMetadata;
 import com.oceanbase.odc.service.objectstorage.util.ObjectStorageUtils;
 import com.oceanbase.odc.service.rollbackplan.GenerateRollbackPlan;
@@ -47,10 +46,11 @@ import com.oceanbase.odc.service.rollbackplan.RollbackGeneratorFactory;
 import com.oceanbase.odc.service.rollbackplan.UnsupportedSqlTypeForRollbackPlanException;
 import com.oceanbase.odc.service.rollbackplan.model.RollbackPlan;
 import com.oceanbase.odc.service.session.factory.DefaultConnectSessionFactory;
+import com.oceanbase.odc.service.task.SharedStorage;
+import com.oceanbase.odc.service.task.TaskContext;
 import com.oceanbase.odc.service.task.base.BaseTask;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.constants.JobParametersKeyConstants;
-import com.oceanbase.odc.service.task.executor.task.TaskContext;
 import com.oceanbase.odc.service.task.util.JobUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -200,7 +200,7 @@ public class RollbackPlanTask extends BaseTask<FlowTaskResult> {
         if (CollectionUtils.isNotEmpty(objectMetadataList)) {
             this.uploadFileInputStream =
                     ObjectStorageUtils
-                            .loadObjectsForTask(objectMetadataList, getCloudObjectStorageService(),
+                            .loadObjectsForTask(objectMetadataList, context.getSharedStorage(),
                                     JobUtils.getExecutorDataPath(),
                                     parameters.getRollbackProperties().getMaxRollbackContentSizeBytes())
                             .getInputStream();
@@ -223,12 +223,12 @@ public class RollbackPlanTask extends BaseTask<FlowTaskResult> {
                 String resultFileId = StringUtils.uuid();
                 String filePath = String.format("%s/%s.sql", resultFileRootPath, resultFileId);
                 FileUtils.writeStringToFile(new File(filePath), rollbackResult, StandardCharsets.UTF_8);
-                CloudObjectStorageService cloudObjectStorageService = getCloudObjectStorageService();
-                if (Objects.nonNull(cloudObjectStorageService) && cloudObjectStorageService.supported()) {
+                SharedStorage sharedStorage = context.getSharedStorage();
+                if (sharedStorage.available()) {
                     File tempFile = new File(filePath);
                     try {
-                        String objectName = cloudObjectStorageService.uploadTemp(resultFileId + ".sql", tempFile);
-                        resultFileDownloadUrl = cloudObjectStorageService.getBucketName() + "/" + objectName;
+                        String objectName = sharedStorage.uploadTemp(resultFileId + ".sql", tempFile);
+                        resultFileDownloadUrl = sharedStorage.getPathPrefix() + "/" + objectName;
                         log.info("Upload generated rollback plan task result file to OSS, file name={}", resultFileId);
                     } finally {
                         OdcFileUtil.deleteFiles(tempFile);

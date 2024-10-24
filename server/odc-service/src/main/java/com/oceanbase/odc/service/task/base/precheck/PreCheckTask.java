@@ -62,10 +62,10 @@ import com.oceanbase.odc.service.sqlcheck.SqlCheckRule;
 import com.oceanbase.odc.service.sqlcheck.SqlCheckRuleFactory;
 import com.oceanbase.odc.service.sqlcheck.model.CheckViolation;
 import com.oceanbase.odc.service.sqlcheck.rule.SqlCheckRules;
+import com.oceanbase.odc.service.task.TaskContext;
 import com.oceanbase.odc.service.task.base.BaseTask;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.constants.JobParametersKeyConstants;
-import com.oceanbase.odc.service.task.executor.task.TaskContext;
 import com.oceanbase.odc.service.task.util.JobUtils;
 
 import lombok.NonNull;
@@ -197,7 +197,7 @@ public class PreCheckTask extends BaseTask<FlowTaskResult> {
         List<ObjectMetadata> objectMetadataList = this.parameters.getSqlFileObjectMetadatas();
         if (Objects.nonNull(params) && CollectionUtils.isNotEmpty(objectMetadataList)) {
             this.uploadFileInputStream = ObjectStorageUtils.loadObjectsForTask(objectMetadataList,
-                    getCloudObjectStorageService(), JobUtils.getExecutorDataPath(), -1).getInputStream();
+                    context.getSharedStorage(), JobUtils.getExecutorDataPath(), -1).getInputStream();
             this.uploadFileSqlIterator = SqlUtils.iterator(this.parameters.getConnectionConfig().getDialectType(),
                     params.getDelimiter(), this.uploadFileInputStream, StandardCharsets.UTF_8);
         }
