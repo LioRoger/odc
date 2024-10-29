@@ -57,7 +57,8 @@ public class ExecutorRequestHandler {
         this.executorBiz = new LogBizImpl();
     }
 
-    public SuccessResponse<Object> process(HttpMethod httpMethod, String uri, String requestData) {
+    public SuccessResponse<Object>
+    process(HttpMethod httpMethod, String uri, String requestData) {
         if (uri == null || uri.trim().isEmpty()) {
             return Responses.single("request error: uri is empty.");
         }
