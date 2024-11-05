@@ -20,22 +20,46 @@ import java.util.Map;
 import com.oceanbase.odc.service.task.enums.JobStatus;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
 
+import lombok.Data;
+
 /**
  * @author yaobin
  * @date 2023-11-29
  * @since 4.2.4
  */
-public interface TaskResult {
+@Data
+public class TaskResult {
 
-    JobIdentity getJobIdentity();
+    private JobIdentity jobIdentity;
 
-    JobStatus getStatus();
+    private JobStatus status;
 
-    String getResultJson();
+    private String resultJson;
 
-    String getExecutorEndpoint();
+    private String executorEndpoint;
 
-    double getProgress();
+    private String errorMessage;
 
-    Map<String, String> getLogMetadata();
+    private double progress;
+
+    private Map<String, String> logMetadata;
+
+    public boolean progressChanged(TaskResult previous) {
+        if (previous == null) {
+            return true;
+        }
+        if (status != previous.getStatus()) {
+            return true;
+        }
+        if (Double.compare(progress, previous.getProgress()) != 0) {
+            return true;
+        }
+        if (logMetadata != null && !logMetadata.equals(previous.getLogMetadata())) {
+            return true;
+        }
+        if (resultJson != null && !resultJson.equals(previous.getResultJson())) {
+            return true;
+        }
+        return false;
+    }
 }

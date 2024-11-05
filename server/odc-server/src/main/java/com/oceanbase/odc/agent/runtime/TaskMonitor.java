@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.executor;
+package com.oceanbase.odc.agent.runtime;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -35,6 +35,11 @@ import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.constants.JobParametersKeyConstants;
 import com.oceanbase.odc.service.task.constants.JobServerUrls;
 import com.oceanbase.odc.service.task.enums.JobStatus;
+import com.oceanbase.odc.service.task.executor.HeartbeatRequest;
+import com.oceanbase.odc.service.task.executor.TaskReporter;
+import com.oceanbase.odc.service.task.executor.TaskResult;
+import com.oceanbase.odc.service.task.executor.TaskResultBuilder;
+import com.oceanbase.odc.service.task.executor.TraceDecoratorThreadFactory;
 import com.oceanbase.odc.service.task.executor.logger.LogBizImpl;
 import com.oceanbase.odc.service.task.util.JobUtils;
 
@@ -59,9 +64,10 @@ public class TaskMonitor {
     private Map<String, String> logMetadata = new HashMap<>();
     private AtomicLong logMetaCollectedMillis = new AtomicLong(0L);
 
-    public TaskMonitor(BaseTask<?> task, CloudObjectStorageService cloudObjectStorageService) {
+    public TaskMonitor(BaseTask<?> task, TaskReporter taskReporter,
+            CloudObjectStorageService cloudObjectStorageService) {
         this.task = task;
-        this.reporter = new TaskReporter(task.getJobContext().getHostUrls());;
+        this.reporter = taskReporter;;
         this.cloudObjectStorageService = cloudObjectStorageService;
     }
 
@@ -138,8 +144,8 @@ public class TaskMonitor {
         if (JobUtils.isReportDisabled()) {
             return;
         }
-        DefaultTaskResult taskResult = DefaultTaskResultBuilder.build(getTask());
-        DefaultTaskResult copiedResult = ObjectUtil.deepCopy(taskResult, DefaultTaskResult.class);
+        TaskResult taskResult = TaskResultBuilder.build(getTask());
+        TaskResult copiedResult = ObjectUtil.deepCopy(taskResult, TaskResult.class);
         if (copiedResult.getStatus().isTerminated()) {
             log.info("job {} status {} is terminate, monitor report be ignored.",
                     copiedResult.getJobIdentity().getId(), copiedResult.getStatus());
@@ -169,7 +175,7 @@ public class TaskMonitor {
 
     private void doFinal() {
 
-        DefaultTaskResult finalResult = DefaultTaskResultBuilder.build(getTask());
+        TaskResult finalResult = TaskResultBuilder.build(getTask());
         // Report final result
         log.info("Task id: {}, finished with status: {}, start to report final result", getJobId(),
                 finalResult.getStatus());
@@ -187,6 +193,8 @@ public class TaskMonitor {
         log.info("Task id: {}, remained work be completed, report finished status.", getJobId());
 
         if (JobUtils.isReportEnabled()) {
+            // assign error for last report
+            TaskResultBuilder.assignErrorMessage(finalResult, getTask());
             // Report finish signal to task server
             reportTaskResultWithRetry(finalResult, REPORT_RESULT_RETRY_TIMES);
         } else {
@@ -211,13 +219,16 @@ public class TaskMonitor {
                 getJobId(), this.logMetaCollectedMillis.get());
     }
 
-    private void uploadLogFileToCloudStorage(DefaultTaskResult finalResult) {
+    private void uploadLogFileToCloudStorage(TaskResult finalResult) {
 
         Map<String, String> logMap = finalResult.getLogMetadata();
+        if (null == logMap) {
+            logMap = new HashMap<>();
+        }
         if (cloudObjectStorageService != null && cloudObjectStorageService.supported()
                 && JobUtils.isK8sRunModeOfEnv()) {
-            logMap = new LogBizImpl().uploadLogFileToCloudStorage(finalResult.getJobIdentity(),
-                    cloudObjectStorageService);
+            logMap.putAll(new LogBizImpl().uploadLogFileToCloudStorage(finalResult.getJobIdentity(),
+                    cloudObjectStorageService));
         } else {
             logMap.put(JobAttributeKeyConstants.LOG_STORAGE_FAILED_REASON,
                     "cloudObjectStorageService is null or not supported");
@@ -225,7 +236,7 @@ public class TaskMonitor {
         finalResult.setLogMetadata(logMap);
     }
 
-    private void reportTaskResultWithRetry(DefaultTaskResult result, int retries) {
+    private void reportTaskResultWithRetry(TaskResult result, int retries) {
         if (result.getStatus() == JobStatus.DONE) {
             result.setProgress(100.0);
         }

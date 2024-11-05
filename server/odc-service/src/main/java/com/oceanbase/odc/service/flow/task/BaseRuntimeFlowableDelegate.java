@@ -76,6 +76,9 @@ public abstract class BaseRuntimeFlowableDelegate<T> extends BaseFlowableDelegat
     private TaskType taskType;
     @Getter
     protected Long flowInstanceId;
+
+    @Getter
+    private Long organizationId;
     @Getter
     private ExecutionStrategyConfig strategyConfig;
     @Autowired
@@ -190,6 +193,7 @@ public abstract class BaseRuntimeFlowableDelegate<T> extends BaseFlowableDelegat
 
         this.targetTaskInstanceId = flowTaskInstance.getId();
         this.taskType = flowTaskInstance.getTaskType();
+        this.organizationId = flowTaskInstance.getOrganizationId();
         this.targetTaskId = flowTaskInstance.getTargetTaskId();
         this.strategyConfig = flowTaskInstance.getStrategyConfig();
         flowTaskInstance.dealloc();

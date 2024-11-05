@@ -29,6 +29,6 @@ public interface TaskExecutor {
 
     boolean cancel(JobIdentity ji);
 
-    BaseTask<?> getTask(JobIdentity ji);
+    TaskRuntimeInfo getTaskRuntimeInfo(JobIdentity ji);
 
 }

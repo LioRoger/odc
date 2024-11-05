@@ -13,15 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.processor;
-
-import com.oceanbase.odc.service.task.executor.TaskResult;
+package com.oceanbase.odc.service.task.supervisor;
 
 /**
- * @Author：tinker
- * @Date: 2024/7/6 10:45
- * @Descripition:
+ *
+ * @author longpeng.zlp
+ * @date 2024/10/30 10:51
  */
-public interface ResultProcessor {
-    void process(TaskResult result);
+public class TaskStateChangeListener {
 }

@@ -24,10 +24,10 @@ import com.oceanbase.odc.service.task.util.JobUtils;
  * @date 2024-01-12
  * @since 4.2.4
  */
-public class DefaultTaskResultBuilder {
+public class TaskResultBuilder {
 
-    public static DefaultTaskResult build(BaseTask<?> task) {
-        DefaultTaskResult result = new DefaultTaskResult();
+    public static TaskResult build(BaseTask<?> task) {
+        TaskResult result = new TaskResult();
         result.setResultJson(JsonUtils.toJson(task.getTaskResult()));
         result.setStatus(task.getStatus());
         result.setProgress(task.getProgress());
@@ -36,4 +36,8 @@ public class DefaultTaskResultBuilder {
         return result;
     }
 
+    public static void assignErrorMessage(TaskResult result, BaseTask<?> task) {
+        Throwable e = task.getError();
+        result.setErrorMessage(null == e ? null : e.getMessage());
+    }
 }

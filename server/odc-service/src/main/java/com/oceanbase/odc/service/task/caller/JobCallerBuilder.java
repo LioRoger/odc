@@ -66,6 +66,7 @@ public class JobCallerBuilder {
         environments.put(JobEnvKeyConstants.ODC_JOB_CONTEXT_FILE_PATH,
                 JobUtils.encrypt(environments.get(JobEnvKeyConstants.ENCRYPT_KEY),
                         environments.get(JobEnvKeyConstants.ENCRYPT_SALT), jobContextFilePath));
+        setReportMode(environments, context);
         ProcessConfig config = new ProcessConfig();
         config.setEnvironments(environments);
 
@@ -94,12 +95,7 @@ public class JobCallerBuilder {
             environments.put(JobEnvKeyConstants.ODC_EXECUTOR_PORT, String.valueOf(executorListenPort));
         }
 
-        TaskMonitorMode monitorMode = JobPropertiesUtils.getMonitorMode(jobProperties);
-        if (TaskMonitorMode.PULL.equals(monitorMode)) {
-            environments.put(JobEnvKeyConstants.REPORT_ENABLED, "false");
-        } else {
-            environments.put(JobEnvKeyConstants.REPORT_ENABLED, "true");
-        }
+        setReportMode(environments, context);
 
         // encryption related properties
         JasyptEncryptorConfigProperties jasyptProperties = JobConfigurationHolder.getJobConfiguration()
@@ -110,6 +106,15 @@ public class JobCallerBuilder {
         environments.put(JobEnvKeyConstants.ODC_PROPERTY_ENCRYPTION_SUFFIX, jasyptProperties.getSuffix());
         environments.put(JobEnvKeyConstants.ODC_PROPERTY_ENCRYPTION_SALT, jasyptProperties.getSalt());
         return environments;
+    }
+
+    private static void setReportMode(Map<String, String> environments, JobContext jobContext) {
+        TaskMonitorMode monitorMode = JobPropertiesUtils.getMonitorMode(jobContext.getJobProperties());
+        if (TaskMonitorMode.PULL.equals(monitorMode)) {
+            environments.put(JobEnvKeyConstants.REPORT_ENABLED, "false");
+        } else {
+            environments.put(JobEnvKeyConstants.REPORT_ENABLED, "true");
+        }
     }
 
     public static JobCaller buildK8sJobCaller(PodConfig podConfig, JobContext context,

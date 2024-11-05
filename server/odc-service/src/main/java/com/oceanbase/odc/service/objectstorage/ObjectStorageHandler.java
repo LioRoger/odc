@@ -15,21 +15,18 @@
  */
 package com.oceanbase.odc.service.objectstorage;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
+import java.io.InputStream;
 
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
 import org.springframework.core.io.Resource;
 
 import com.oceanbase.odc.core.shared.exception.InternalServerError;
-import com.oceanbase.odc.service.objectstorage.cloud.CloudObjectStorageService;
 import com.oceanbase.odc.service.objectstorage.model.ObjectMetadata;
 import com.oceanbase.odc.service.objectstorage.model.StorageObject;
 import com.oceanbase.odc.service.objectstorage.operator.LocalFileOperator;
 import com.oceanbase.odc.service.objectstorage.util.ObjectStorageUtils;
+import com.oceanbase.odc.service.task.SharedStorage;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,27 +39,22 @@ import lombok.extern.slf4j.Slf4j;
 public class ObjectStorageHandler {
 
     private final LocalFileOperator localFileOperator;
-    private final CloudObjectStorageService cloudObjectStorageService;
+    private final SharedStorage sharedStorage;
 
-    public ObjectStorageHandler(CloudObjectStorageService cloudObjectStorageService, String localDir) {
+    public ObjectStorageHandler(SharedStorage sharedStorage, String localDir) {
         this.localFileOperator = new LocalFileOperator(localDir);
-        this.cloudObjectStorageService = cloudObjectStorageService;
-    }
-
-    public String loadObjectContentAsString(ObjectMetadata metadata) throws IOException {
-        StorageObject storageObject = loadObject(metadata);
-        return IOUtils.toString(storageObject.getContent(), StandardCharsets.UTF_8);
+        this.sharedStorage = sharedStorage;
     }
 
     public StorageObject loadObject(ObjectMetadata metadata) {
         Resource resource;
         try {
-            if (cloudObjectStorageService.supported()) {
+            if (sharedStorage.available()) {
                 // OSS supported, load file from local if exists, otherwise load file from oss
                 if (localFileOperator.isLocalFileAbsent(metadata)) {
                     log.info("File is absent in local, load file from oss, bucket={}, objectId={}",
                             metadata.getBucketName(), metadata.getObjectId());
-                    loadObjectFromOss(metadata);
+                    loadObjectFromSharedObject(metadata);
                 }
                 resource = localFileOperator.loadAsResource(metadata.getBucketName(), metadata.getObjectId());
             } else {
@@ -78,14 +70,11 @@ public class ObjectStorageHandler {
         }
     }
 
-    private void loadObjectFromOss(ObjectMetadata metadata) throws IOException {
-        File tempFile = cloudObjectStorageService.downloadToTempFile(metadata.getObjectId());
-        try (FileInputStream inputStream = new FileInputStream(tempFile)) {
+    private void loadObjectFromSharedObject(ObjectMetadata metadata) throws IOException {
+        try (InputStream inputStream = sharedStorage.download(metadata.getObjectId())) {
             FileUtils.copyInputStreamToFile(inputStream,
                     localFileOperator.getOrCreateLocalFile(metadata.getBucketName(),
                             metadata.getObjectId()));
-        } finally {
-            FileUtils.deleteQuietly(tempFile);
         }
     }
 

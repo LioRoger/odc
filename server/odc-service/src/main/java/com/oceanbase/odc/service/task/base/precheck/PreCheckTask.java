@@ -62,6 +62,7 @@ import com.oceanbase.odc.service.sqlcheck.SqlCheckRule;
 import com.oceanbase.odc.service.sqlcheck.SqlCheckRuleFactory;
 import com.oceanbase.odc.service.sqlcheck.model.CheckViolation;
 import com.oceanbase.odc.service.sqlcheck.rule.SqlCheckRules;
+import com.oceanbase.odc.service.task.TaskContext;
 import com.oceanbase.odc.service.task.base.BaseTask;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.constants.JobParametersKeyConstants;
@@ -100,7 +101,7 @@ public class PreCheckTask extends BaseTask<FlowTaskResult> {
     }
 
     @Override
-    protected boolean doStart(JobContext context) throws Exception {
+    protected boolean doStart(JobContext context, TaskContext taskContext) throws Exception {
         try {
             List<OffsetString> sqls = new ArrayList<>();
             this.overLimit = getSqlContentUntilOverLimit(sqls, this.parameters.getMaxReadContentBytes());
@@ -116,6 +117,9 @@ public class PreCheckTask extends BaseTask<FlowTaskResult> {
             this.sqlCheckResult = SqlCheckTaskResult.success(violations);
             this.success = true;
             log.info("Pre-check task end up running, task id: {}", taskId);
+        } catch (Throwable e) {
+            taskContext.getExceptionListener().onException(e);
+            throw e;
         } finally {
             tryCloseInputStream();
         }
@@ -193,7 +197,7 @@ public class PreCheckTask extends BaseTask<FlowTaskResult> {
         List<ObjectMetadata> objectMetadataList = this.parameters.getSqlFileObjectMetadatas();
         if (Objects.nonNull(params) && CollectionUtils.isNotEmpty(objectMetadataList)) {
             this.uploadFileInputStream = ObjectStorageUtils.loadObjectsForTask(objectMetadataList,
-                    getCloudObjectStorageService(), JobUtils.getExecutorDataPath(), -1).getInputStream();
+                    context.getSharedStorage(), JobUtils.getExecutorDataPath(), -1).getInputStream();
             this.uploadFileSqlIterator = SqlUtils.iterator(this.parameters.getConnectionConfig().getDialectType(),
                     params.getDelimiter(), this.uploadFileInputStream, StandardCharsets.UTF_8);
         }
