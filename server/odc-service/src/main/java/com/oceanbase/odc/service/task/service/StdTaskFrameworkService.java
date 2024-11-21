@@ -57,6 +57,7 @@ import com.oceanbase.odc.core.alarm.AlarmUtils;
 import com.oceanbase.odc.core.authority.util.SkipAuthorize;
 import com.oceanbase.odc.core.shared.PreConditions;
 import com.oceanbase.odc.core.shared.constant.ResourceType;
+import com.oceanbase.odc.core.shared.constant.TaskStatus;
 import com.oceanbase.odc.core.shared.exception.NotFoundException;
 import com.oceanbase.odc.metadb.resource.ResourceEntity;
 import com.oceanbase.odc.metadb.resource.ResourceRepository;
@@ -85,6 +86,7 @@ import com.oceanbase.odc.service.task.listener.JobTerminateEvent;
 import com.oceanbase.odc.service.task.processor.result.ResultProcessor;
 import com.oceanbase.odc.service.task.schedule.JobDefinition;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
+import com.oceanbase.odc.service.task.state.JobStatusFsm;
 import com.oceanbase.odc.service.task.util.JobDateUtils;
 import com.oceanbase.odc.service.task.util.JobPropertiesUtils;
 import com.oceanbase.odc.service.task.util.TaskExecutorClient;
@@ -136,6 +138,8 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
     private TaskExecutorClient taskExecutorClient;
     @Autowired
     private ExecutorEndpointManager executorEndpointManager;
+    // default impl
+    private JobStatusFsm jobStatusFsm = new JobStatusFsm();
     @Autowired
     private List<ResultProcessor> resultProcessors;
 
@@ -334,7 +338,7 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
             log.warn("Job identity is null");
             return;
         }
-        if (taskResult.getStatus() == JobStatus.CANCELED) {
+        if (taskResult.getStatus() == TaskStatus.CANCELED) {
             log.warn("Job is canceled by odc server, this result is ignored.");
             return;
         }
@@ -357,29 +361,77 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
                 log.warn("Update executor endpoint failed, jobId={}", je.getId());
             }
         }
-        // TODO: update task entity only when progress changed
-        int rows = updateTaskResult(taskResult, je);
-        tryReleaseResource(je, taskResult.getStatus().isTerminated());
-        if (rows > 0) {
-            taskResultPublisherExecutor
-                    .execute(() -> publisher.publishEvent(new DefaultJobProcessUpdateEvent(taskResult)));
-            if (publisher != null && taskResult.getStatus() != null && taskResult.getStatus().isTerminated()) {
-                taskResultPublisherExecutor.execute(() -> publisher
-                        .publishEvent(new JobTerminateEvent(taskResult.getJobIdentity(), taskResult.getStatus())));
-                if (taskResult.getStatus() == JobStatus.FAILED) {
-                    Map<String, String> eventMessage = AlarmUtils.createAlarmMapBuilder()
-                            .item(AlarmUtils.ORGANIZATION_NAME, Optional.ofNullable(je.getOrganizationId()).map(
-                                    Object::toString).orElse(StrUtil.EMPTY))
-                            .item(AlarmUtils.TASK_JOB_ID_NAME, String.valueOf(je.getId()))
-                            .item(AlarmUtils.MESSAGE_NAME,
-                                    MessageFormat.format("Job execution failed, jobId={0}",
-                                            taskResult.getJobIdentity().getId()))
-                            .item(AlarmUtils.FAILED_REASON_NAME,
-                                    CharSequenceUtil.nullToDefault(taskResult.getErrorMessage(),
-                                            CharSequenceUtil.EMPTY))
-                            .build();
-                    AlarmUtils.alarm(AlarmEventNames.TASK_EXECUTION_FAILED, eventMessage);
-                }
+
+        handleTaskResultInner(je, taskResult);
+    }
+
+    private void doRefreshResult(Long id) throws JobException {
+        JobEntity je = find(id);
+        // CANCELING is also a state within the running phase
+        if (JobStatus.RUNNING != je.getStatus()) {
+            log.info("Job is not running, ignore refresh, jobId={}, currentStatus={}", id, je.getStatus());
+            return;
+        }
+
+        String executorEndpoint = executorEndpointManager.getExecutorEndpoint(je);
+        TaskResult result = taskExecutorClient.getResult(executorEndpoint, JobIdentity.of(id));
+        if (result.getStatus() == TaskStatus.PREPARING) {
+            log.info("Job is preparing, ignore refresh, jobId={}, currentStatus={}", id, result.getStatus());
+            return;
+        }
+        TaskResult previous = JsonUtils.fromJson(je.getResultJson(), TaskResult.class);
+
+        if (!updateHeartbeatTime(id)) {
+            log.warn("Update lastHeartbeatTime failed, the job may finished or deleted already, jobId={}", id);
+            return;
+        }
+        if (!result.isProgressChanged(previous)) {
+            log.info("Progress not changed, skip update result to metadb, jobId={}, currentProgress={}",
+                    id, result.getProgress());
+            return;
+        }
+        log.info("Progress changed, will update result, jobId={}, currentProgress={}", id, result.getProgress());
+        handleTaskResult(je.getJobType(), result);
+        saveOrUpdateLogMetadata(result, je.getId(), je.getStatus());
+
+        if (result.getStatus().isTerminated() && MapUtils.isEmpty(result.getLogMetadata())) {
+            log.info("Job is finished but log have not uploaded, continue monitor result, jobId={}, currentStatus={}",
+                    je.getId(), je.getStatus());
+            return;
+        }
+        handleTaskResultInner(je, result);
+    }
+
+    protected void handleTaskResultInner(JobEntity jobEntity, TaskResult result) {
+        JobStatus expectedJobStatus = jobStatusFsm.determinateJobStatus(jobEntity.getStatus(), result.getStatus());
+        int rows = updateTaskResult(result, jobEntity, expectedJobStatus);
+        // release resource
+        tryReleaseResource(jobEntity, expectedJobStatus.isTerminated());
+        if (rows == 0) {
+            log.warn("Update task result failed, the job may finished or deleted already, jobId={}", jobEntity.getId());
+            return;
+        }
+        taskResultPublisherExecutor
+                .execute(() -> publisher.publishEvent(new DefaultJobProcessUpdateEvent(result)));
+
+        if (publisher != null && result.getStatus() != null && result.getStatus().isTerminated()) {
+            taskResultPublisherExecutor.execute(() -> publisher
+                    .publishEvent(new JobTerminateEvent(result.getJobIdentity(), expectedJobStatus)));
+
+            // TODO maybe we can destroy the pod there.
+            if (result.getStatus() == TaskStatus.FAILED) {
+                Map<String, String> eventMessage = AlarmUtils.createAlarmMapBuilder()
+                        .item(AlarmUtils.ORGANIZATION_NAME, Optional.ofNullable(jobEntity.getOrganizationId()).map(
+                                Object::toString).orElse(StrUtil.EMPTY))
+                        .item(AlarmUtils.TASK_JOB_ID_NAME, String.valueOf(jobEntity.getId()))
+                        .item(AlarmUtils.MESSAGE_NAME,
+                                MessageFormat.format("Job execution failed, jobId={0}",
+                                        result.getJobIdentity().getId()))
+                        .item(AlarmUtils.FAILED_REASON_NAME,
+                                CharSequenceUtil.nullToDefault(result.getErrorMessage(),
+                                        CharSequenceUtil.EMPTY))
+                        .build();
+                AlarmUtils.alarm(AlarmEventNames.TASK_EXECUTION_FAILED, eventMessage);
             }
         }
     }
@@ -388,7 +440,7 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
     public void refreshResult(Long id) {
         taskResultPullerExecutor.execute(() -> {
             try {
-                doPullAndRefreshResult(id);
+                doRefreshResult(id);
             } catch (Exception e) {
                 log.warn("Refresh job result failed, jobId={}, causeReason={}",
                         id, ExceptionUtils.getRootCauseReason(e));
@@ -398,7 +450,7 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
 
     /**
      * refresh log meta when job is canceled
-     * 
+     *
      * @param id
      * @return
      */
@@ -428,77 +480,6 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
         } catch (Exception exception) {
             log.warn("Refresh log meta failed,errorMsg={}", exception.getMessage());
             return false;
-        }
-    }
-
-    /**
-     * pull task result and refresh it if needed
-     * 
-     * @param id
-     * @throws JobException
-     */
-    private void doPullAndRefreshResult(Long id) throws JobException {
-        JobEntity je = find(id);
-        // CANCELING is also a state within the running phase
-        if (JobStatus.RUNNING != je.getStatus()) {
-            log.info("Job is not running, ignore refresh, jobId={}, currentStatus={}", id, je.getStatus());
-            return;
-        }
-
-        String executorEndpoint = executorEndpointManager.getExecutorEndpoint(je);
-        TaskResult result = taskExecutorClient.getResult(executorEndpoint, JobIdentity.of(id));
-        if (result.getStatus() == JobStatus.PREPARING) {
-            log.info("Job is preparing, ignore refresh, jobId={}, currentStatus={}", id, result.getStatus());
-            return;
-        }
-        TaskResult previous = JsonUtils.fromJson(je.getResultJson(), TaskResult.class);
-        if (!updateHeartbeatTime(id)) {
-            log.warn("Update lastHeartbeatTime failed, the job may finished or deleted already, jobId={}", id);
-            return;
-        }
-        if (!result.progressChanged(previous)) {
-            log.info("Progress not changed, skip update result to metadb, jobId={}, currentProgress={}",
-                    id, result.getProgress());
-            return;
-        }
-        log.info("Progress changed, will update result, jobId={}, currentProgress={}", id, result.getProgress());
-        handleTaskResult(je.getJobType(), result);
-        saveOrUpdateLogMetadata(result, je.getId(), je.getStatus());
-
-        if (result.getStatus().isTerminated() && MapUtils.isEmpty(result.getLogMetadata())) {
-            log.info("Job is finished but log have not uploaded, continue monitor result, jobId={}, currentStatus={}",
-                    je.getId(), je.getStatus());
-            return;
-        }
-
-        int rows = updateTaskResult(result, je);
-        // release resource
-        tryReleaseResource(je, result.getStatus().isTerminated());
-        if (rows == 0) {
-            log.warn("Update task result failed, the job may finished or deleted already, jobId={}", id);
-            return;
-        }
-        taskResultPublisherExecutor
-                .execute(() -> publisher.publishEvent(new DefaultJobProcessUpdateEvent(result)));
-
-        if (publisher != null && result.getStatus() != null && result.getStatus().isTerminated()) {
-            taskResultPublisherExecutor.execute(() -> publisher
-                    .publishEvent(new JobTerminateEvent(result.getJobIdentity(), result.getStatus())));
-            // TODO(tianke): move this logic to event listener
-            // TODO maybe we can destroy the pod there.
-            if (result.getStatus() == JobStatus.FAILED) {
-                Map<String, String> eventMessage = AlarmUtils.createAlarmMapBuilder()
-                        .item(AlarmUtils.ORGANIZATION_NAME, Optional.ofNullable(je.getOrganizationId()).map(
-                                Object::toString).orElse(StrUtil.EMPTY))
-                        .item(AlarmUtils.TASK_JOB_ID_NAME, String.valueOf(je.getId()))
-                        .item(AlarmUtils.MESSAGE_NAME,
-                                MessageFormat.format("Job execution failed, jobId={0}",
-                                        result.getJobIdentity().getId()))
-                        .item(AlarmUtils.FAILED_REASON_NAME, CharSequenceUtil.nullToDefault(result.getErrorMessage(),
-                                CharSequenceUtil.EMPTY))
-                        .build();
-                AlarmUtils.alarm(AlarmEventNames.TASK_EXECUTION_FAILED, eventMessage);
-            }
         }
     }
 
@@ -550,11 +531,11 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
         return jobRepository.updateExecutorEndpoint(id, executorEndpoint, currentJob.getStatus());
     }
 
-    private int updateTaskResult(TaskResult taskResult, JobEntity currentJob) {
+    private int updateTaskResult(TaskResult taskResult, JobEntity currentJob, JobStatus expectedStatus) {
         JobEntity jse = new JobEntity();
         handleTaskResult(currentJob.getJobType(), taskResult);
         jse.setResultJson(JsonUtils.toJson(taskResult));
-        jse.setStatus(taskResult.getStatus());
+        jse.setStatus(expectedStatus);
         jse.setProgressPercentage(taskResult.getProgress());
         jse.setLastReportTime(JobDateUtils.getCurrentDate());
         if (taskResult.getStatus() != null && taskResult.getStatus().isTerminated()) {
@@ -734,5 +715,4 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
             }
         }
     }
-
 }

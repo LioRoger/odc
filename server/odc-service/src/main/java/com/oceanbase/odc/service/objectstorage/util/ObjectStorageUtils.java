@@ -25,9 +25,9 @@ import com.oceanbase.odc.common.util.StringUtils;
 import com.oceanbase.odc.core.shared.Verify;
 import com.oceanbase.odc.service.flow.task.model.SizeAwareInputStream;
 import com.oceanbase.odc.service.objectstorage.ObjectStorageHandler;
+import com.oceanbase.odc.service.objectstorage.cloud.CloudObjectStorageService;
 import com.oceanbase.odc.service.objectstorage.model.ObjectMetadata;
 import com.oceanbase.odc.service.objectstorage.model.StorageObject;
-import com.oceanbase.odc.service.task.SharedStorage;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +49,7 @@ public class ObjectStorageUtils {
     }
 
     public static SizeAwareInputStream loadObjectsForTask(@NonNull List<ObjectMetadata> metadatas,
-            SharedStorage cloudOSS, String executorDataPath, long maxReadBytes) throws IOException {
+            CloudObjectStorageService cloudOSS, String executorDataPath, long maxReadBytes) throws IOException {
         InputStream inputStream = new ByteArrayInputStream(new byte[0]);
         long totalBytes = 0;
         for (ObjectMetadata metadata : metadatas) {

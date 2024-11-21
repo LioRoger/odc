@@ -156,9 +156,7 @@ public class ScheduleTaskService {
                 res.setParameters(JsonUtils.toJson(scheduleTask.getParameters()));
 
                 jobRepository.findByIdNative(scheduleTask.getJobId())
-                        .ifPresent(jobEntity -> {
-                            res.setExecutionDetails(JobUtils.retrieveJobResultStr(jobEntity));
-                        });
+                        .ifPresent(jobEntity -> res.setExecutionDetails(JobUtils.retrieveJobResultStr(jobEntity)));
                 break;
             case LOGICAL_DATABASE_CHANGE:
                 res.setExecutionDetails(
@@ -323,6 +321,7 @@ public class ScheduleTaskService {
         // get job result json
         List<Long> jobIds = scheduleTaskPage.getContent().stream().map(ScheduleTask::getJobId).filter(Objects::nonNull)
                 .collect(Collectors.toList());
+
         Map<Long, String> resultMap = new HashMap<>();
         List<JobEntity> jobEntities = jobRepository.findAllById(jobIds);
         // only not null result is collected
@@ -332,6 +331,7 @@ public class ScheduleTaskService {
                 resultMap.put(jobEntity.getId(), resultJson);
             }
         }
+
         return scheduleTaskPage.map(task -> {
             Schedule schedule = scheduleMap.get(task.getJobName());
             ScheduleTaskListOverview overview = ScheduleTaskListOverviewMapper.map(task);

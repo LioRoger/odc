@@ -13,37 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.oceanbase.odc.metadb.connection;
 
-package com.oceanbase.odc.service.task;
+import java.util.Optional;
 
-import org.junit.Ignore;
-import org.junit.Test;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
-import com.oceanbase.odc.agent.runtime.EmbedServer;
-
-import lombok.extern.slf4j.Slf4j;
-
-/**
- * @author yaobin
- * @date 2023-12-13
- * @since 4.2.4
- */
-@Slf4j
-public class EmbedServerTest {
-
-    @Ignore
-    @Test
-    public void test_server() throws Exception {
-
-        EmbedServer server = new EmbedServer();
-        server.start();
-        try {
-            synchronized (this) {
-                this.wait(60 * 1000);
-            }
-        } finally {
-            server.stop();
-        }
-
-    }
+public interface ConnectionSyncHistoryRepository extends JpaRepository<ConnectionSyncHistoryEntity, Long>,
+        JpaSpecificationExecutor<ConnectionSyncHistoryEntity> {
+    Optional<ConnectionSyncHistoryEntity> findByConnectionId(Long connectionId);
 }

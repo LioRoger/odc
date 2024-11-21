@@ -13,21 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.base;
+package com.oceanbase.odc.agent.runtime;
 
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.oceanbase.odc.core.shared.constant.TaskStatus;
+import com.oceanbase.odc.service.objectstorage.cloud.CloudObjectStorageService;
 import com.oceanbase.odc.service.task.ExceptionListener;
 import com.oceanbase.odc.service.task.Task;
 import com.oceanbase.odc.service.task.TaskContext;
-import com.oceanbase.odc.service.task.caller.DefaultJobContext;
 import com.oceanbase.odc.service.task.caller.JobContext;
-import com.oceanbase.odc.service.task.enums.JobStatus;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -35,55 +35,82 @@ import lombok.extern.slf4j.Slf4j;
  * @date 2023/11/22 20:16
  */
 @Slf4j
-public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListener {
-
+final class TaskContainer<RESULT> implements ExceptionListener {
+    // if task has been closed
     private final AtomicBoolean closed = new AtomicBoolean(false);
-    protected TaskContext context;
-    private Map<String, String> jobParameters;
-    private volatile JobStatus status = JobStatus.PREPARING;
+    // status maintained by task container
+    private volatile TaskStatus status = TaskStatus.PREPARING;
+    // task event listener for task event notify
+    @Getter
+    protected final TaskMonitor taskMonitor;
+    // task context for task to init
+    protected final TaskContext taskContext;
+    // task instance holding
+    @Getter
+    private final Task<RESULT> task;
     // only save latest exception if any
     // it will be cleaned if been fetched
     protected AtomicReference<Throwable> latestException = new AtomicReference<>();
 
-    @Override
-    public void start(TaskContext taskContext) {
-        this.context = taskContext;
-        JobContext jobContext = taskContext.getJobContext();
-        log.info("Start task, id={}.", jobContext.getJobIdentity().getId());
+    public TaskContainer(JobContext jobContext, CloudObjectStorageService cloudObjectStorageService,
+            TaskReporter taskReporter, // assignable for test
+            Task<RESULT> task) {
+        this.taskContext = createTaskContext(jobContext, cloudObjectStorageService);
+        this.task = task;
+        this.taskMonitor = new TaskMonitor(this, taskReporter, cloudObjectStorageService);
+    }
 
-        this.jobParameters = Collections.unmodifiableMap(jobContext.getJobParameters());
-        log.info("Init task parameters success, id={}.", jobContext.getJobIdentity().getId());
+    protected TaskContext createTaskContext(JobContext jobContext,
+            CloudObjectStorageService cloudObjectStorageService) {
+        ExceptionListener exceptionListener = this;
+        return new TaskContext() {
+            @Override
+            public ExceptionListener getExceptionListener() {
+                return exceptionListener;
+            }
 
+            @Override
+            public JobContext getJobContext() {
+                return jobContext;
+            }
+
+            @Override
+            public CloudObjectStorageService getSharedStorage() {
+                return cloudObjectStorageService;
+            }
+        };
+    }
+
+    /**
+     * 1. init task 2. run task 3. maintain status
+     */
+    public void runTask() {
         try {
-            doInit(context.getJobContext());
-            updateStatus(JobStatus.RUNNING);
-            context.getTaskEventListener().onTaskStart(this);
-            if (doStart(context.getJobContext(), taskContext)) {
-                updateStatus(JobStatus.DONE);
+            task.init(taskContext);
+            updateStatus(TaskStatus.RUNNING);
+            taskMonitor.monitor();
+            if (task.start()) {
+                updateStatus(TaskStatus.DONE);
             } else {
-                updateStatus(JobStatus.FAILED);
+                updateStatus(TaskStatus.FAILED);
             }
         } catch (Throwable e) {
             log.warn("Task failed, id={}.", getJobId(), e);
-            updateStatus(JobStatus.FAILED);
-            taskContext.getExceptionListener().onException(e);
+            updateStatus(TaskStatus.FAILED);
+            onException(e);
         } finally {
             close();
         }
     }
 
-    @Override
     public boolean stop() {
         try {
             if (getStatus().isTerminated()) {
                 log.warn("Task is already finished and cannot be canceled, id={}, status={}.", getJobId(), getStatus());
             } else {
-                doStop();
+                task.stop();
                 // doRefresh cannot execute if update status to 'canceled'.
-                updateStatus(JobStatus.CANCELING);
-            }
-            if (null != context) {
-                context.getTaskEventListener().onTaskStop(this);
+                updateStatus(TaskStatus.CANCELED);
             }
             return true;
         } catch (Throwable e) {
@@ -94,7 +121,6 @@ public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListene
         }
     }
 
-    @Override
     public boolean modify(Map<String, String> jobParameters) {
         if (Objects.isNull(jobParameters) || jobParameters.isEmpty()) {
             log.warn("Job parameter cannot be null, id={}", getJobId());
@@ -104,75 +130,39 @@ public abstract class BaseTask<RESULT> implements Task<RESULT>, ExceptionListene
             log.warn("Task is already finished, cannot modify parameters, id={}", getJobId());
             return false;
         }
-        DefaultJobContext ctx = (DefaultJobContext) getJobContext();
-        ctx.setJobParameters(jobParameters);
-        this.jobParameters = Collections.unmodifiableMap(jobParameters);
-        try {
-            afterModifiedJobParameters();
-        } catch (Exception e) {
-            log.warn("Do after modified job parameters failed", e);
-        }
-        if (null != context) {
-            context.getTaskEventListener().onTaskModify(this);
-        }
+        task.modify(jobParameters);
         return true;
     }
+
 
     private void close() {
         if (closed.compareAndSet(false, true)) {
             try {
-                doClose();
+                task.close();
             } catch (Throwable e) {
                 // do nothing
             }
             log.info("Task completed, id={}, status={}.", getJobId(), getStatus());
-            if (null != context) {
-                context.getTaskEventListener().onTaskFinalize(this);
-            }
+            taskMonitor.finalWork();
         }
     }
 
-    @Override
-    public JobStatus getStatus() {
+    public TaskStatus getStatus() {
         return status;
     }
 
-    @Override
-    public JobContext getJobContext() {
-        return context.getJobContext();
-    }
 
-    protected void updateStatus(JobStatus status) {
+    private void updateStatus(TaskStatus status) {
         log.info("Update task status, id={}, status={}.", getJobId(), status);
         this.status = status;
     }
 
     protected Map<String, String> getJobParameters() {
-        return this.jobParameters;
+        return task.getJobContext().getJobParameters();
     }
 
     private Long getJobId() {
-        return getJobContext().getJobIdentity().getId();
-    }
-
-    protected abstract void doInit(JobContext context) throws Exception;
-
-    /**
-     * start a task return succeed or failed after completed.
-     *
-     * @return return true if execute succeed, else return false
-     */
-    protected abstract boolean doStart(JobContext context, TaskContext taskContext) throws Exception;
-
-    protected abstract void doStop() throws Exception;
-
-    /**
-     * task can release relational resource in this method
-     */
-    protected abstract void doClose() throws Exception;
-
-    protected void afterModifiedJobParameters() throws Exception {
-        // do nothing
+        return task.getJobContext().getJobIdentity().getId();
     }
 
     public Throwable getError() {

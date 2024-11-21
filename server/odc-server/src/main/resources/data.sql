@@ -846,3 +846,12 @@ INSERT INTO config_system_configuration(`key`, `value`, `description`) VALUES('o
  '1440', 'The longest time ODC can cache repository copies') ON DUPLICATE KEY UPDATE `id`=`id`;
 INSERT INTO config_system_configuration(`key`, `value`, `description`) VALUES('odc.integration.git.repository-max-cached-size',
  '1000', 'The maximum number of repository copies cached in ODC') ON DUPLICATE KEY UPDATE `id`=`id`;
+
+ --
+ -- v4.3.3
+ --
+ INSERT INTO config_system_configuration(`key`, `value`, `description`) VALUES('server.servlet.session.cookie.secure',
+  'false', 'Enable secure cookie or not, default value false') ON DUPLICATE KEY UPDATE `id`=`id`;
+
+INSERT INTO config_system_configuration(`key`, `value`, `description`) VALUES('odc.features.logicaldatabase.enabled', 'true',
+  'Whether to enable the logical database feature, default is true, indicating enabled.') ON DUPLICATE KEY UPDATE `id`=`id`;

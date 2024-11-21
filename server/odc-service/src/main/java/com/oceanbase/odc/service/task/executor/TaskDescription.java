@@ -25,9 +25,10 @@ import lombok.Getter;
  */
 public enum TaskDescription {
     DLM("DML", "data lifecycle management task"),
-    LOGICAL_DATABASE_CHANGE("LogicalDatabaseChange", "logic database change task"),
-    LOAD_DATA("LOAD_DATA", "load data task");
-    ;
+
+    LOAD_DATA("LOAD_DATA", "load data task"),
+
+    LOGICAL_DATABASE_CHANGE("LogicalDatabaseChange", "logic database change task");
 
     @Getter
     private final String type;

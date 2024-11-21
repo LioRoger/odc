@@ -17,7 +17,9 @@ package com.oceanbase.odc.service.task.executor;
 
 import java.util.Map;
 
-import com.oceanbase.odc.service.task.enums.JobStatus;
+import com.oceanbase.odc.common.util.MapUtils;
+import com.oceanbase.odc.common.util.StringUtils;
+import com.oceanbase.odc.core.shared.constant.TaskStatus;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
 
 import lombok.Data;
@@ -32,7 +34,7 @@ public class TaskResult {
 
     private JobIdentity jobIdentity;
 
-    private JobStatus status;
+    private TaskStatus status;
 
     private String resultJson;
 
@@ -44,7 +46,7 @@ public class TaskResult {
 
     private Map<String, String> logMetadata;
 
-    public boolean progressChanged(TaskResult previous) {
+    public boolean isProgressChanged(TaskResult previous) {
         if (previous == null) {
             return true;
         }
@@ -54,12 +56,9 @@ public class TaskResult {
         if (Double.compare(progress, previous.getProgress()) != 0) {
             return true;
         }
-        if (logMetadata != null && !logMetadata.equals(previous.getLogMetadata())) {
+        if (!MapUtils.isEqual(logMetadata, previous.logMetadata, String::equals)) {
             return true;
         }
-        if (resultJson != null && !resultJson.equals(previous.getResultJson())) {
-            return true;
-        }
-        return false;
+        return !StringUtils.equals(resultJson, previous.getResultJson());
     }
 }

@@ -15,6 +15,7 @@
  */
 package com.oceanbase.odc.service.task;
 
+import com.oceanbase.odc.service.objectstorage.cloud.CloudObjectStorageService;
 import com.oceanbase.odc.service.task.caller.JobContext;
 
 /**
@@ -39,16 +40,9 @@ public interface TaskContext {
     JobContext getJobContext();
 
     /**
-     * provide task event listener
-     * 
-     * @return
-     */
-    TaskEventListener getTaskEventListener();
-
-    /**
      * get shared storage for task upload or download file
-     * 
+     *
      * @return
      */
-    SharedStorage getSharedStorage();
+    CloudObjectStorageService getSharedStorage();
 }

@@ -15,6 +15,7 @@
  */
 package com.oceanbase.odc.service.task.base.sqlplan;
 
+import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileWriter;
@@ -61,15 +62,14 @@ import com.oceanbase.odc.service.common.model.FileBucket;
 import com.oceanbase.odc.service.common.util.OdcFileUtil;
 import com.oceanbase.odc.service.common.util.SqlUtils;
 import com.oceanbase.odc.service.connection.model.ConnectionConfig;
+import com.oceanbase.odc.service.objectstorage.cloud.CloudObjectStorageService;
 import com.oceanbase.odc.service.schedule.job.PublishSqlPlanJobReq;
 import com.oceanbase.odc.service.session.OdcStatementCallBack;
 import com.oceanbase.odc.service.session.factory.DefaultConnectSessionFactory;
 import com.oceanbase.odc.service.session.initializer.ConsoleTimeoutInitializer;
 import com.oceanbase.odc.service.session.model.SqlExecuteResult;
 import com.oceanbase.odc.service.sqlplan.model.SqlPlanTaskResult;
-import com.oceanbase.odc.service.task.SharedStorage;
-import com.oceanbase.odc.service.task.TaskContext;
-import com.oceanbase.odc.service.task.base.BaseTask;
+import com.oceanbase.odc.service.task.base.TaskBase;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.constants.JobParametersKeyConstants;
 import com.oceanbase.odc.service.task.exception.JobException;
@@ -82,7 +82,7 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
+public class SqlPlanTask extends TaskBase<SqlPlanTaskResult> {
 
     private PublishSqlPlanJobReq parameters;
 
@@ -110,11 +110,14 @@ public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
 
     private final List<CSVExecuteResult> csvFileMappers = new ArrayList<>();
 
+    public SqlPlanTask() {}
+
     @Override
     protected void doInit(JobContext context) {
         this.result = new SqlPlanTaskResult();
-        this.parameters = JobUtils.fromJson(getJobParameters().get(JobParametersKeyConstants.META_TASK_PARAMETER_JSON),
-                PublishSqlPlanJobReq.class);
+        this.parameters =
+                JobUtils.fromJson(jobContext.getJobParameters().get(JobParametersKeyConstants.META_TASK_PARAMETER_JSON),
+                        PublishSqlPlanJobReq.class);
         JobContext jobContext = getJobContext();
         Map<String, String> jobProperties = jobContext.getJobProperties();
         this.taskId = jobContext.getJobIdentity().getId();
@@ -138,7 +141,7 @@ public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
     }
 
     @Override
-    protected boolean doStart(JobContext context, TaskContext taskContext) throws Exception {
+    public boolean start() throws Exception {
         try {
             int index = 0;
             initSqlInputStream();
@@ -181,6 +184,7 @@ public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
                         break;
                     }
                     log.warn("Sql task execution failed, will continue to execute next statement.", e);
+                    context.getExceptionListener().onException(e);
                 }
             }
             result.setTotalStatements(index);
@@ -214,14 +218,16 @@ public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
             return;
         }
 
-        SharedStorage sharedStorage = context.getSharedStorage();
-        if (!sharedStorage.available()) {
+        CloudObjectStorageService cloudObjectStorageService = context.getSharedStorage();
+        if (Objects.isNull(cloudObjectStorageService) || !cloudObjectStorageService.supported()) {
             log.warn("Cloud object storage service not supported.");
             throw new UnexpectedException("Cloud object storage service not supported");
         }
 
         for (String sqlObjectId : parameters.getSqlObjectIds()) {
-            try (InputStream current = sharedStorage.download(sqlObjectId);) {
+            try {
+                BufferedInputStream current =
+                        new BufferedInputStream(cloudObjectStorageService.getObject(sqlObjectId));
                 // remove UTF-8 BOM if exists
                 current.mark(3);
                 byte[] byteSql = new byte[3];
@@ -241,14 +247,13 @@ public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
         }
     }
 
-
     @Override
-    protected void doStop() {
+    public void stop() {
         canceled = true;
     }
 
     @Override
-    protected void doClose() {
+    public void close() {
         tryExpireConnectionSession();
     }
 
@@ -320,7 +325,7 @@ public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
 
     private ConnectionSession generateSession() {
         ConnectionConfig connectionConfig = JobUtils.fromJson(
-                getJobParameters().get(JobParametersKeyConstants.CONNECTION_CONFIG), ConnectionConfig.class);
+                jobContext.getJobParameters().get(JobParametersKeyConstants.CONNECTION_CONFIG), ConnectionConfig.class);
         DefaultConnectSessionFactory sessionFactory = new DefaultConnectSessionFactory(connectionConfig);
         sessionFactory.setSessionTimeoutMillis(parameters.getTimeoutMillis());
         ConnectionSession connectionSession = sessionFactory.generateSession();
@@ -464,17 +469,14 @@ public class SqlPlanTask extends BaseTask<SqlPlanTaskResult> {
     }
 
     private String uploadToOSS(String filePath) {
-        if (null == context) {
-            throw new IllegalStateException("task not init, context is null");
-        }
         // Public cloud scenario, need to upload files to OSS
-        SharedStorage sharedStorage = context.getSharedStorage();
-        if (sharedStorage.available()) {
+        CloudObjectStorageService cloudObjectStorageService = context.getSharedStorage();
+        if (Objects.nonNull(cloudObjectStorageService) && cloudObjectStorageService.supported()) {
             File file = new File(filePath);
             String ossAddress;
             try {
-                String objectName = sharedStorage.upload(file.getName(), file);
-                ossAddress = String.valueOf(sharedStorage.getDownloadURL(objectName));
+                String objectName = cloudObjectStorageService.upload(file.getName(), file);
+                ossAddress = String.valueOf(cloudObjectStorageService.generateDownloadUrl(objectName));
                 log.info("Upload sql plan task result to cloud object storage successfully, objectName={}", objectName);
             } catch (Exception exception) {
                 throw new RuntimeException(String.format(

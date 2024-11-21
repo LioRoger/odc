@@ -80,7 +80,7 @@ public class InMemoryMeterManager implements MeterManager, InitializingBean {
         return true;
     }
 
-    public boolean incrementCounter(MeterKey meterKey) {
+    public boolean incrementCounter(MeterKey meterKey, double amount) {
         CounterWrapper wrapper = COUNTER_MAP.get(meterKey);
         if (wrapper == null) {
             if (COUNTER_MAP.size() >= monitorProperties.getMeter().getMaxCounterMeterNumber()) {
@@ -95,11 +95,14 @@ public class InMemoryMeterManager implements MeterManager, InitializingBean {
                 Counter counter = registerCounter(meterKey);
                 wrapper.setCounter(counter);
             }
-            wrapper.getCounter().increment();
+            wrapper.getCounter().increment(amount);
             return true;
         }
     }
 
+    public boolean incrementCounter(MeterKey meterKey) {
+        return incrementCounter(meterKey, 1);
+    }
 
     public Counter registerCounter(MeterKey meterKey) {
         Builder builder = Counter.builder(meterKey.getMeterName().getName())

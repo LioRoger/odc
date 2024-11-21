@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.agent;
+package com.oceanbase.odc.agent.runtime;
 
 import java.io.File;
 import java.net.URI;
@@ -24,16 +24,12 @@ import java.util.Map;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
 
-import com.oceanbase.odc.agent.runtime.EmbedServer;
-import com.oceanbase.odc.agent.runtime.ExitHelper;
-import com.oceanbase.odc.agent.runtime.TaskFactory;
-import com.oceanbase.odc.agent.runtime.ThreadPoolTaskExecutor;
 import com.oceanbase.odc.common.trace.TaskContextHolder;
 import com.oceanbase.odc.common.trace.TraceContextHolder;
 import com.oceanbase.odc.common.util.StringUtils;
 import com.oceanbase.odc.common.util.SystemUtils;
 import com.oceanbase.odc.core.shared.Verify;
-import com.oceanbase.odc.service.task.base.BaseTask;
+import com.oceanbase.odc.service.task.Task;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.caller.JobEnvironmentEncryptor;
 import com.oceanbase.odc.service.task.constants.JobEnvKeyConstants;
@@ -63,7 +59,7 @@ public class TaskApplication {
         try {
             server.start();
             log.info("Starting embed server.");
-            BaseTask<?> task = TaskFactory.create(context.getJobClass());
+            Task<?> task = TaskFactory.create(context.getJobClass());
             ThreadPoolTaskExecutor.getInstance().execute(task, context);
             ExitHelper.await();
         } catch (Exception e) {

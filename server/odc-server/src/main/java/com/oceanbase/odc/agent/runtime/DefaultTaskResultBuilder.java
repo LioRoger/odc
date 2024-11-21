@@ -13,10 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.executor;
+package com.oceanbase.odc.agent.runtime;
 
 import com.oceanbase.odc.common.json.JsonUtils;
-import com.oceanbase.odc.service.task.base.BaseTask;
+import com.oceanbase.odc.common.util.ExceptionUtils;
+import com.oceanbase.odc.service.task.Task;
+import com.oceanbase.odc.service.task.executor.TaskResult;
 import com.oceanbase.odc.service.task.util.JobUtils;
 
 /**
@@ -24,20 +26,19 @@ import com.oceanbase.odc.service.task.util.JobUtils;
  * @date 2024-01-12
  * @since 4.2.4
  */
-public class TaskResultBuilder {
-
-    public static TaskResult build(BaseTask<?> task) {
+class DefaultTaskResultBuilder {
+    public static TaskResult build(TaskContainer<?> taskContainer) {
         TaskResult result = new TaskResult();
+        Task<?> task = taskContainer.getTask();
         result.setResultJson(JsonUtils.toJson(task.getTaskResult()));
-        result.setStatus(task.getStatus());
+        result.setStatus(taskContainer.getStatus());
         result.setProgress(task.getProgress());
         result.setJobIdentity(task.getJobContext().getJobIdentity());
         result.setExecutorEndpoint(JobUtils.getExecutorPoint());
         return result;
     }
 
-    public static void assignErrorMessage(TaskResult result, BaseTask<?> task) {
-        Throwable e = task.getError();
-        result.setErrorMessage(null == e ? null : e.getMessage());
+    public static void assignErrorMessage(TaskResult result, Throwable e) {
+        result.setErrorMessage(null == e ? null : ExceptionUtils.getRootCauseReason(e, 3));
     }
 }
