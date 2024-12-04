@@ -40,6 +40,8 @@ import com.oceanbase.odc.core.alarm.AlarmEventNames;
 import com.oceanbase.odc.core.alarm.AlarmUtils;
 import com.oceanbase.odc.core.shared.PreConditions;
 import com.oceanbase.odc.metadb.task.JobEntity;
+import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
+import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
 import com.oceanbase.odc.service.monitor.task.job.JobMonitorListener;
 import com.oceanbase.odc.service.schedule.model.TriggerConfig;
 import com.oceanbase.odc.service.schedule.model.TriggerStrategy;
@@ -49,6 +51,7 @@ import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
 import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.enums.JobStatus;
 import com.oceanbase.odc.service.task.enums.TaskMonitorMode;
+import com.oceanbase.odc.service.task.enums.TaskRunMode;
 import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.exception.TaskRuntimeException;
 import com.oceanbase.odc.service.task.listener.DefaultJobCallerListener;
@@ -57,7 +60,11 @@ import com.oceanbase.odc.service.task.schedule.daemon.DestroyResourceJob;
 import com.oceanbase.odc.service.task.schedule.daemon.DoCancelingJob;
 import com.oceanbase.odc.service.task.schedule.daemon.PullTaskResultJob;
 import com.oceanbase.odc.service.task.schedule.daemon.StartPreparingJob;
+import com.oceanbase.odc.service.task.schedule.daemon.StartPreparingJobRunBySupervisorAgent;
+import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 import com.oceanbase.odc.service.task.service.JobRunnable;
+import com.oceanbase.odc.service.task.supervisor.SupervisorEndpointState;
+import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.util.JobUtils;
 
 import cn.hutool.core.util.StrUtil;
@@ -86,6 +93,7 @@ public class StdJobScheduler implements JobScheduler {
         getEventPublisher().addEventListener(new JobMonitorListener());
 
         initDaemonJob();
+        tryRegisterTaskSupervisorAgent();
         log.info("Start StdJobScheduler succeed.");
     }
 
@@ -207,7 +215,7 @@ public class StdJobScheduler implements JobScheduler {
         String key = "checkRunningJob";
         initCronJob(key,
                 configuration.getTaskFrameworkProperties().getCheckRunningJobCronExpression(),
-                CheckRunningJob.class);
+                CheckRunningJob.class, scheduler);
     }
 
     private void initPullTaskResultJob() {
@@ -218,31 +226,40 @@ public class StdJobScheduler implements JobScheduler {
         String key = "pullTaskResultJob";
         initCronJob(key,
                 configuration.getTaskFrameworkProperties().getPullTaskResultJobCronExpression(),
-                PullTaskResultJob.class);
+                PullTaskResultJob.class, scheduler);
     }
 
     private void initStartPreparingJob() {
-        String key = "startPreparingJob";
-        initCronJob(key,
+        if (isTaskSupervisorEnabled()) {
+            log.info("start with supervisor preparing job");
+            String key = "startPreparingSupervisorTaskJob";
+            initCronJob(key,
                 configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
-                StartPreparingJob.class);
+                StartPreparingJobRunBySupervisorAgent.class, configuration.getTaskSupervisorScheduler());
+        } else {
+            log.info("start with normal preparing job");
+            String key = "startPreparingJob";
+            initCronJob(key,
+                configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
+                StartPreparingJob.class, scheduler);
+        }
     }
 
     private void initDoCancelingJob() {
         String key = "doCancelingJob";
         initCronJob(key,
                 configuration.getTaskFrameworkProperties().getDoCancelingJobCronExpression(),
-                DoCancelingJob.class);
+                DoCancelingJob.class, scheduler);
     }
 
     private void initDestroyExecutorJob() {
         String key = "destroyExecutorJob";
         initCronJob(key,
                 configuration.getTaskFrameworkProperties().getDestroyExecutorJobCronExpression(),
-                DestroyResourceJob.class);
+                DestroyResourceJob.class, scheduler);
     }
 
-    private void initCronJob(String key, String cronExpression, Class<? extends Job> jobClass) {
+    private void initCronJob(String key, String cronExpression, Class<? extends Job> jobClass, Scheduler scheduler) {
         TriggerConfig config = new TriggerConfig();
         config.setTriggerStrategy(TriggerStrategy.CRON);
         config.setCronExpression(cronExpression);
@@ -254,7 +271,7 @@ public class StdJobScheduler implements JobScheduler {
             JobDetail detail = JobBuilder.newJob(jobClass)
                     .withIdentity(JobKey.jobKey(key, group))
                     .build();
-            scheduleCronJob(triggerKey, trigger, detail);
+            scheduleCronJob(triggerKey, trigger, detail, scheduler);
         } catch (JobException e) {
             log.warn("build trigger {} failed:", key, e);
         } catch (SchedulerException e) {
@@ -262,7 +279,7 @@ public class StdJobScheduler implements JobScheduler {
         }
     }
 
-    private void scheduleCronJob(TriggerKey triggerKey, Trigger trigger, JobDetail detail)
+    private void scheduleCronJob(TriggerKey triggerKey, Trigger trigger, JobDetail detail, Scheduler scheduler)
             throws SchedulerException {
         if (scheduler.checkExists(triggerKey)) {
             if (scheduler.getTrigger(triggerKey) instanceof CronTrigger && trigger instanceof CronTrigger) {
@@ -288,6 +305,29 @@ public class StdJobScheduler implements JobScheduler {
         PreConditions.notNull(configuration.getTaskFrameworkService(), "task framework service");
         PreConditions.notNull(configuration.getJobImageNameProvider(), "job image name provider");
         PreConditions.notNull(configuration.getTransactionManager(), "transaction manager");
+    }
+
+    private void tryRegisterTaskSupervisorAgent() {
+        // register to TaskSupervisorAgent
+        if (!(TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties) && taskFrameworkProperties.getRunMode() == TaskRunMode.PROCESS)) {
+            log.info("start with normal mode");
+            return;
+        }
+        log.info("start with supervisor agent mode, try register agent");
+        SupervisorEndpointRepository endpointRepository = configuration.getSupervisorEndpointRepository();
+        SupervisorEndpoint localEndpoint = TaskSupervisorUtil.getDefaultSupervisorEndpoint();
+        Optional<SupervisorEndpointEntity> registered = endpointRepository.findByHostAndPort(localEndpoint.getHost(), Integer.valueOf(localEndpoint.getPort()));
+        if (registered.isPresent()) {
+            endpointRepository.updateStatusByHostAndPort(localEndpoint.getHost(), localEndpoint.getPort(), SupervisorEndpointState.AVAILABLE.name());
+        } else {
+            SupervisorEndpointEntity created = new SupervisorEndpointEntity();
+            created.setHost(localEndpoint.getHost());
+            created.setPort(localEndpoint.getPort());
+            created.setResourceID(-1L);
+            created.setLoad(0);
+            created.setStatus(SupervisorEndpointState.AVAILABLE.name());
+            endpointRepository.save(created);
+        }
     }
 
 }

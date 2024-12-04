@@ -23,7 +23,7 @@ import lombok.Data;
  */
 @Data
 public class SupervisorEndpoint {
-    public static final SupervisorEndpoint SELF_ENDPOINT = new SupervisorEndpoint("localhost", "-1");
+    public static final SupervisorEndpoint SELF_ENDPOINT = new SupervisorEndpoint("localhost", -1);
     private final String host;
-    private final String port;
+    private final Integer port;
 }

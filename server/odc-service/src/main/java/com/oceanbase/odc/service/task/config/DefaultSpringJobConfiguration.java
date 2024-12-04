@@ -24,22 +24,28 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.oceanbase.odc.common.event.LocalEventPublisher;
+import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
 import com.oceanbase.odc.service.common.model.HostProperties;
 import com.oceanbase.odc.service.connection.ConnectionService;
 import com.oceanbase.odc.service.objectstorage.cloud.model.CloudEnvConfigurations;
 import com.oceanbase.odc.service.resource.ResourceManager;
 import com.oceanbase.odc.service.task.TaskService;
+import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.dispatch.ImmediateJobDispatcher;
 import com.oceanbase.odc.service.task.jasypt.JasyptEncryptorConfigProperties;
 import com.oceanbase.odc.service.task.schedule.DefaultTaskFrameworkDisabledHandler;
 import com.oceanbase.odc.service.task.schedule.JobCredentialProvider;
 import com.oceanbase.odc.service.task.schedule.StartJobRateLimiter;
 import com.oceanbase.odc.service.task.schedule.StartJobRateLimiterSupport;
+import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 import com.oceanbase.odc.service.task.schedule.provider.DefaultHostUrlProvider;
 import com.oceanbase.odc.service.task.schedule.provider.DefaultJobImageNameProvider;
 import com.oceanbase.odc.service.task.service.SpringTransactionManager;
 import com.oceanbase.odc.service.task.service.StdTaskFrameworkService;
 import com.oceanbase.odc.service.task.service.TaskFrameworkService;
+import com.oceanbase.odc.service.task.supervisor.DefaultJobEventListener;
+import com.oceanbase.odc.service.task.supervisor.TaskSupervisorJobCaller;
+import com.oceanbase.odc.service.task.supervisor.proxy.LocalTaskSupervisorProxy;
 import com.oceanbase.odc.service.task.util.TaskExecutorClient;
 
 /**
@@ -62,6 +68,8 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         setConnectionService(ctx.getBean(ConnectionService.class));
         setTaskService(ctx.getBean(TaskService.class));
         setDaemonScheduler((Scheduler) ctx.getBean("taskFrameworkSchedulerFactoryBean"));
+        setTaskSupervisorScheduler((Scheduler) ctx.getBean("defaultScheduler"));
+
         setJobDispatcher(new ImmediateJobDispatcher(ctx.getBean(ResourceManager.class)));
         setResourceManager(ctx.getBean(ResourceManager.class));
         LocalEventPublisher publisher = new LocalEventPublisher();
@@ -71,14 +79,17 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         }
         setTaskFrameworkService(tfs);
         setEventPublisher(publisher);
-
-        setTaskExecutorClient(new TaskExecutorClient());
+        TaskExecutorClient  executorClient = ctx.getBean(TaskExecutorClient.class);
+        setTaskExecutorClient(executorClient);
+        setTaskSupervisorJobCaller(new TaskSupervisorJobCaller(new DefaultJobEventListener(), new LocalTaskSupervisorProxy(executorClient,
+            TaskSupervisorUtil.getDefaultSupervisorEndpoint(), JobConstants.ODC_AGENT_CLASS_NAME)));
         setTransactionManager(new SpringTransactionManager(ctx.getBean(TransactionTemplate.class)));
         initJobRateLimiter();
         setTaskFrameworkDisabledHandler(new DefaultTaskFrameworkDisabledHandler());
         setJasyptEncryptorConfigProperties(ctx.getBean(JasyptEncryptorConfigProperties.class));
         setHostProperties(ctx.getBean(HostProperties.class));
         setJobCredentialProvider(ctx.getBean(JobCredentialProvider.class));
+        setSupervisorEndpointRepository(ctx.getBean(SupervisorEndpointRepository.class));
     }
 
     @Override

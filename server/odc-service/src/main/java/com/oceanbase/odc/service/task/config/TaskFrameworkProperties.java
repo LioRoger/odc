@@ -81,4 +81,6 @@ public interface TaskFrameworkProperties {
 
     boolean isEnableK8sLocalDebugMode();
 
+    boolean isEnableTaskSupervisorAgent();
+
 }

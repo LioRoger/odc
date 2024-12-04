@@ -34,7 +34,6 @@ import com.oceanbase.odc.metadb.task.JobEntity;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.config.JobConfiguration;
 import com.oceanbase.odc.service.task.config.JobConfigurationHolder;
-import com.oceanbase.odc.service.task.config.JobConfigurationValidator;
 import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
 import com.oceanbase.odc.service.task.enums.JobStatus;
 import com.oceanbase.odc.service.task.exception.JobException;
@@ -62,7 +61,6 @@ public class StartPreparingJob implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
         configuration = JobConfigurationHolder.getJobConfiguration();
-        JobConfigurationValidator.validComponent();
 
         if (!configuration.getTaskFrameworkEnabledProperties().isEnabled()) {
             configuration.getTaskFrameworkDisabledHandler().handleJobToFailed();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 OceanBase.
+ * Copyright (c) 2024 OceanBase.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,27 +17,41 @@ package com.oceanbase.odc.service.task.supervisor.proxy;
 
 import java.io.IOException;
 
+import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.caller.ProcessConfig;
 import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.supervisor.TaskSupervisor;
-import com.oceanbase.odc.service.task.supervisor.TaskSupervisorProxy;
 import com.oceanbase.odc.service.task.supervisor.endpoint.ExecutorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
+import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommandSender;
+import com.oceanbase.odc.service.task.supervisor.proxy.RemoteTaskSupervisorProxy;
+import com.oceanbase.odc.service.task.supervisor.proxy.TaskSupervisorProxy;
+import com.oceanbase.odc.service.task.util.TaskExecutorClient;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * proxy to route task command local impl
+ * command executor to route task command local impl
  * 
  * @author longpeng.zlp
  * @date 2024/10/29 11:43
  */
 @Slf4j
 public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
-    private TaskSupervisor localTaskSupervisor;
-    private RemoteTaskSupervisorProxy remoteTaskSupervisorProxy;
-    private SupervisorEndpoint localEndPoint;
+    // command sender to task executor
+    private final TaskExecutorClient        taskExecutorClient;
+    private final TaskSupervisor            taskSupervisor;
+    private final RemoteTaskSupervisorProxy remoteTaskSupervisorProxy;
+    private final SupervisorEndpoint        localEndPoint;
+
+    public LocalTaskSupervisorProxy(TaskExecutorClient taskExecutorClient, SupervisorEndpoint supervisorEndpoint, String mainClassName) {
+        this.taskExecutorClient = taskExecutorClient;
+        this.localEndPoint = supervisorEndpoint;
+        log.info("LocalTaskSupervisorProxy start with endpoint={}", supervisorEndpoint);
+        remoteTaskSupervisorProxy = new RemoteTaskSupervisorProxy(new TaskCommandSender(), taskExecutorClient);
+        taskSupervisor = new TaskSupervisor(supervisorEndpoint, mainClassName);
+    }
 
     @Override
     public ExecutorEndpoint startTask(SupervisorEndpoint supervisorEndpoint, JobContext jobContext,
@@ -45,7 +59,7 @@ public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
         if (isLocalCommandCall(supervisorEndpoint)) {
             log.info("local call start task, supervisorEndpoint={}, jobContext={}, processConfig={}",
                     supervisorEndpoint, jobContext, processConfig);
-            return localTaskSupervisor.startTask(jobContext, processConfig);
+            return taskSupervisor.startTask(jobContext, processConfig);
         } else {
             log.info("remote call start task, supervisorEndpoint={}, jobContext={}, processConfig={}",
                     supervisorEndpoint, jobContext, processConfig);
@@ -55,11 +69,14 @@ public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
 
     @Override
     public boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws IOException {
+            JobContext jobContext) throws JobException {
+        if (null == executorEndpoint) {
+            throw new JobException("empty executor endpoint to stop");
+        }
         if (isLocalCommandCall(supervisorEndpoint)) {
             log.info("local call stop task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
                     supervisorEndpoint, executorEndpoint, jobContext);
-            return localTaskSupervisor.stopTask(executorEndpoint, jobContext);
+            return taskSupervisor.stopTask(executorEndpoint, jobContext);
         } else {
             log.info("remote call stop task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
                     supervisorEndpoint, executorEndpoint, jobContext);
@@ -67,45 +84,44 @@ public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
         }
     }
 
-    @Override
+    /**
+     * modify task use
+     * @param supervisorEndpoint
+     * @param executorEndpoint
+     * @param jobContext
+     * @return
+     * @throws JobException
+     */
     public boolean modifyTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws IOException {
-        if (isLocalCommandCall(supervisorEndpoint)) {
-            log.info("local call modify task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
-                    supervisorEndpoint, executorEndpoint, jobContext);
-            return localTaskSupervisor.modifyTask(executorEndpoint, jobContext);
-        } else {
-            log.info("remote call modify task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
-                    supervisorEndpoint, executorEndpoint, jobContext);
-            return remoteTaskSupervisorProxy.modifyTask(supervisorEndpoint, executorEndpoint, jobContext);
-        }
+        JobContext jobContext) throws JobException {
+        taskExecutorClient.modifyJobParameters(TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint), jobContext.getJobIdentity(),
+            JsonUtils.toJson(jobContext.getJobParameters()));
+        return true;
     }
 
-    @Override
-    public boolean finishTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws JobException, IOException {
-        if (isLocalCommandCall(supervisorEndpoint)) {
-            log.info("local call finish task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
-                    supervisorEndpoint, executorEndpoint, jobContext);
-            return localTaskSupervisor.finishTask(executorEndpoint, jobContext);
-        } else {
-            log.info("remote call finish task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
-                    supervisorEndpoint, executorEndpoint, jobContext);
-            return remoteTaskSupervisorProxy.finishTask(supervisorEndpoint, executorEndpoint, jobContext);
-        }
-    }
 
     @Override
-    public boolean canBeFinished(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
+    public boolean isTaskAlive(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext) throws JobException, IOException {
         if (isLocalCommandCall(supervisorEndpoint)) {
             log.info("local call canBeFinished task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
                     supervisorEndpoint, executorEndpoint, jobContext);
-            return true;
+            return taskSupervisor.isTaskAlive(TaskSupervisor.getExecutorIdentifier(executorEndpoint));
         } else {
             log.info("remote call canBeFinished task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
                     supervisorEndpoint, executorEndpoint, jobContext);
-            return remoteTaskSupervisorProxy.canBeFinished(supervisorEndpoint, executorEndpoint, jobContext);
+            return remoteTaskSupervisorProxy.isTaskAlive(supervisorEndpoint, executorEndpoint, jobContext);
+        }
+    }
+
+    @Override
+    public boolean isSupervisorAlive(SupervisorEndpoint supervisorEndpoint) {
+        if (isLocalCommandCall(supervisorEndpoint)) {
+            log.info("local call isSupervisorAlive task, supervisorEndpoint={}", supervisorEndpoint);
+            return true;
+        } else {
+            log.info("remote call isSupervisorAlive task, supervisorEndpoint={}", supervisorEndpoint);
+            return remoteTaskSupervisorProxy.isSupervisorAlive(supervisorEndpoint);
         }
     }
 

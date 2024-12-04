@@ -102,4 +102,9 @@ public class DefaultTaskFrameworkProperties implements TaskFrameworkProperties {
      * local k8s debug mode, use process builder mock k8s
      */
     private boolean enableK8sLocalDebugMode;
+
+    /**
+     * if enable task supervisor agent, current only in process mode, this flag can enabled, k8s mode will ignore this mode
+     */
+    private boolean enableTaskSupervisorAgent;
 }

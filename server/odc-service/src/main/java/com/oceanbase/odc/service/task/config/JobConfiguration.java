@@ -19,6 +19,7 @@ package com.oceanbase.odc.service.task.config;
 import org.quartz.Scheduler;
 
 import com.oceanbase.odc.common.event.EventPublisher;
+import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
 import com.oceanbase.odc.service.common.model.HostProperties;
 import com.oceanbase.odc.service.connection.ConnectionService;
 import com.oceanbase.odc.service.objectstorage.cloud.model.CloudEnvConfigurations;
@@ -33,6 +34,7 @@ import com.oceanbase.odc.service.task.schedule.provider.HostUrlProvider;
 import com.oceanbase.odc.service.task.schedule.provider.JobImageNameProvider;
 import com.oceanbase.odc.service.task.service.TaskFrameworkService;
 import com.oceanbase.odc.service.task.service.TransactionManager;
+import com.oceanbase.odc.service.task.supervisor.TaskSupervisorJobCaller;
 import com.oceanbase.odc.service.task.util.TaskExecutorClient;
 
 /**
@@ -55,7 +57,23 @@ public interface JobConfiguration {
 
     Scheduler getDaemonScheduler();
 
+    /**
+     * scheduler for task supervisor scheduler
+     * @return
+     */
+    Scheduler getTaskSupervisorScheduler();
+
+    /**
+     * old job dispatcher
+     * @return
+     */
     JobDispatcher getJobDispatcher();
+
+    /**
+     * task job caller based on task supervisor
+     * @return
+     */
+    TaskSupervisorJobCaller getTaskSupervisorJobCaller();
 
     HostUrlProvider getHostUrlProvider();
 
@@ -78,4 +96,10 @@ public interface JobConfiguration {
     HostProperties getHostProperties();
 
     JobCredentialProvider getJobCredentialProvider();
+
+    /**
+     * get supervisor endpoint repository
+     * @return
+     */
+    SupervisorEndpointRepository getSupervisorEndpointRepository();
 }

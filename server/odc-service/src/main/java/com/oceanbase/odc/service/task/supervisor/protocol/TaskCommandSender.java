@@ -39,14 +39,28 @@ public class TaskCommandSender {
         return HttpClientUtils.request("POST", url, requestBody, new TypeReference<String>() {});
     }
 
+    /**
+     * send heartbeat command
+     */
+    public String heartbeat(SupervisorEndpoint supervisorEndpoint) throws IOException {
+        StringBuilder sb = new StringBuilder(64);
+        appendHttpURlBase(supervisorEndpoint, sb);
+        sb.append("/heartbeat");
+        return HttpClientUtils.request("GET", sb.toString(), new TypeReference<String>() {});
+    }
+
     protected String buildUrl(SupervisorEndpoint supervisorEndpoint, TaskCommand taskCommand) {
         StringBuilder sb = new StringBuilder(64);
-        // create base
-        sb.append("http://")
-                .append(supervisorEndpoint.getHost()).append(":")
-                .append(supervisorEndpoint.getPort());
+        appendHttpURlBase(supervisorEndpoint, sb);
         // create command url
         sb.append("/task/command/").append(taskCommand.commandType().name().toLowerCase());
         return sb.toString();
+    }
+
+    protected void appendHttpURlBase(SupervisorEndpoint supervisorEndpoint, StringBuilder sb) {
+        // create base
+        sb.append("http://")
+            .append(supervisorEndpoint.getHost()).append(":")
+            .append(supervisorEndpoint.getPort());
     }
 }

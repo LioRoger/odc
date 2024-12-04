@@ -44,7 +44,7 @@ public class JobCallerBuilder {
      * @param environments env for process builder
      * @return
      */
-    public static JobCaller buildProcessCaller(JobContext context, Map<String, String> environments) {
+    public static ProcessJobCaller buildProcessCaller(JobContext context, Map<String, String> environments) {
         JobUtils.encryptEnvironments(environments);
         setReportMode(environments, context);
         ProcessConfig config = new ProcessConfig();

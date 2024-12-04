@@ -21,7 +21,6 @@ import com.oceanbase.odc.metadb.task.JobEntity;
 import com.oceanbase.odc.service.resource.ResourceID;
 import com.oceanbase.odc.service.task.config.JobConfiguration;
 import com.oceanbase.odc.service.task.config.JobConfigurationHolder;
-import com.oceanbase.odc.service.task.config.JobConfigurationValidator;
 import com.oceanbase.odc.service.task.enums.JobCallerAction;
 import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.listener.JobCallerEvent;
@@ -38,9 +37,9 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public abstract class BaseJobCaller implements JobCaller {
+
     @Override
     public void start(JobContext context) throws JobException {
-        JobConfigurationValidator.validComponent();
         JobConfiguration jobConfiguration = JobConfigurationHolder.getJobConfiguration();
         TaskFrameworkService taskFrameworkService = jobConfiguration.getTaskFrameworkService();
         ExecutorIdentifier executorIdentifier = null;
@@ -85,7 +84,6 @@ public abstract class BaseJobCaller implements JobCaller {
 
     @Override
     public void stop(JobIdentity ji) throws JobException {
-        JobConfigurationValidator.validComponent();
         JobConfiguration jobConfiguration = JobConfigurationHolder.getJobConfiguration();
         TaskFrameworkService taskFrameworkService = jobConfiguration.getTaskFrameworkService();
         TaskExecutorClient taskExecutorClient = jobConfiguration.getTaskExecutorClient();
@@ -118,7 +116,6 @@ public abstract class BaseJobCaller implements JobCaller {
 
     @Override
     public void modify(JobIdentity ji, String jobParametersJson) throws JobException {
-        JobConfigurationValidator.validComponent();
         JobConfiguration jobConfiguration = JobConfigurationHolder.getJobConfiguration();
         TaskFrameworkService taskFrameworkService = jobConfiguration.getTaskFrameworkService();
         TaskExecutorClient taskExecutorClient = jobConfiguration.getTaskExecutorClient();
@@ -128,7 +125,6 @@ public abstract class BaseJobCaller implements JobCaller {
 
     @Override
     public void finish(JobIdentity ji) throws JobException {
-        JobConfigurationValidator.validComponent();
         JobConfiguration jobConfiguration = JobConfigurationHolder.getJobConfiguration();
         TaskFrameworkService taskFrameworkService = jobConfiguration.getTaskFrameworkService();
         JobEntity jobEntity = taskFrameworkService.find(ji.getId());

@@ -40,6 +40,7 @@ import com.oceanbase.odc.service.task.supervisor.endpoint.ExecutorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.util.HttpClientUtils;
 
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -49,7 +50,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class ProcessJobCaller extends BaseJobCaller {
-
+    @Getter
     private final ProcessConfig processConfig;
 
     private final TaskSupervisor taskSupervisor;
@@ -58,7 +59,7 @@ public class ProcessJobCaller extends BaseJobCaller {
         this.processConfig = processConfig;
         // only serve local task supervisor
         this.taskSupervisor = new TaskSupervisor(new SupervisorEndpoint(SystemUtils.getLocalIpAddress(),
-                String.valueOf(DefaultExecutorIdentifier.DEFAULT_PORT)), mainClassName);
+                DefaultExecutorIdentifier.DEFAULT_PORT), mainClassName);
     }
 
     @Override
@@ -73,7 +74,7 @@ public class ProcessJobCaller extends BaseJobCaller {
         ExecutorEndpoint executorEndpoint = buildExecutorEndpoint(ei);
         JobContext jobContext = createJobContext(ji);
         if (isSameTaskSupervisor(executorEndpoint, taskSupervisor.getSupervisorEndpoint())) {
-            taskSupervisor.finishTask(executorEndpoint, jobContext);
+            taskSupervisor.stopTask(executorEndpoint, jobContext);
             updateExecutorDestroyed(ji);
             return;
         }
@@ -169,8 +170,8 @@ public class ProcessJobCaller extends BaseJobCaller {
         return new ExecutorEndpoint(
                 TaskSupervisor.COMMAND_PROTOCOL_NAME,
                 executorIdentifier.getHost(),
-                String.valueOf(DefaultExecutorIdentifier.DEFAULT_PORT),
-                String.valueOf(executorIdentifier.getPort()),
+                DefaultExecutorIdentifier.DEFAULT_PORT,
+                executorIdentifier.getPort(),
                 executorIdentifier.toString());
     }
 
@@ -200,7 +201,7 @@ public class ProcessJobCaller extends BaseJobCaller {
      */
     protected boolean isSameTaskSupervisor(ExecutorEndpoint executorEndpoint, SupervisorEndpoint supervisorEndpoint) {
         return StringUtils.equalsIgnoreCase(executorEndpoint.getHost(), supervisorEndpoint.getHost())
-                && StringUtils.equalsIgnoreCase(executorEndpoint.getSupervisorPort(), supervisorEndpoint.getPort());
+                && Integer.compare(executorEndpoint.getSupervisorPort(), supervisorEndpoint.getPort()) == 0;
     }
 
 }

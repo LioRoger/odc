@@ -20,20 +20,35 @@ import java.io.IOException;
 import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.caller.ProcessConfig;
-import com.oceanbase.odc.service.task.supervisor.TaskSupervisorProxy;
+import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.supervisor.endpoint.ExecutorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.protocol.CommandType;
 import com.oceanbase.odc.service.task.supervisor.protocol.GeneralTaskCommand;
 import com.oceanbase.odc.service.task.supervisor.protocol.StartTaskCommand;
 import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommandSender;
+import com.oceanbase.odc.service.task.util.TaskExecutorClient;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
+ * remote supervisor proxy to compatible with current desgin
+ * 1. start command will be send to supervisor agent
+ * 2. other command will be send to task
  * @author longpeng.zlp
  * @date 2024/10/29 14:42
  */
+@Slf4j
 public class RemoteTaskSupervisorProxy implements TaskSupervisorProxy {
-    private TaskCommandSender taskCommandSender;
+    // command sender to supervisor client
+    private final TaskCommandSender taskCommandSender;
+    // command sender to task executor
+    private final TaskExecutorClient taskExecutorClient;
+
+    public RemoteTaskSupervisorProxy(TaskCommandSender taskCommandSender, TaskExecutorClient taskExecutorClient) {
+        this.taskCommandSender = taskCommandSender;
+        this.taskExecutorClient = taskExecutorClient;
+    }
 
     @Override
     public ExecutorEndpoint startTask(SupervisorEndpoint supervisorEndpoint, JobContext jobContext,
@@ -45,31 +60,26 @@ public class RemoteTaskSupervisorProxy implements TaskSupervisorProxy {
 
     @Override
     public boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws IOException {
-        return Boolean.valueOf(taskCommandSender.sendCommand(supervisorEndpoint,
-                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.STOP)));
+            JobContext jobContext) throws JobException {
+        taskExecutorClient.stop(TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint), jobContext.getJobIdentity());
+        return true;
     }
 
     @Override
-    public boolean modifyTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
+    public boolean isTaskAlive(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext) throws IOException {
         return Boolean.valueOf(taskCommandSender.sendCommand(supervisorEndpoint,
-                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.MODIFY)));
+                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.IS_TASK_ALIVE)));
     }
 
     @Override
-    public boolean finishTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws IOException {
-        return Boolean.valueOf(taskCommandSender.sendCommand(supervisorEndpoint,
-                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.FINISH)));
+    public boolean isSupervisorAlive(SupervisorEndpoint supervisorEndpoint) {
+        try {
+            taskCommandSender.heartbeat(supervisorEndpoint);
+            return true;
+        } catch (Throwable e) {
+            log.info("heartbeat failed", e);
+            return false;
+        }
     }
-
-    @Override
-    public boolean canBeFinished(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws IOException {
-        return Boolean.valueOf(taskCommandSender.sendCommand(supervisorEndpoint,
-                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.IS_ALIVE)));
-    }
-
-
 }

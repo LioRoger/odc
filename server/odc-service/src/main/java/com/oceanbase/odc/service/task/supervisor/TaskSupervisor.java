@@ -175,27 +175,7 @@ public class TaskSupervisor {
      * 
      * @param jobContext
      */
-    public boolean stopTask(ExecutorEndpoint executorEndpoint, JobContext jobContext) {
-        return true;
-    }
-
-    /**
-     * modify a task without stop it
-     * 
-     * @param executorEndpoint
-     * @param jobContext
-     */
-    public boolean modifyTask(ExecutorEndpoint executorEndpoint, JobContext jobContext) {
-        return true;
-    }
-
-    /**
-     * finish a task, it will not be started again
-     * 
-     * @param executorEndpoint
-     * @param jobContext
-     */
-    public boolean finishTask(ExecutorEndpoint executorEndpoint, JobContext jobContext) throws JobException {
+    public boolean stopTask(ExecutorEndpoint executorEndpoint, JobContext jobContext) throws JobException {
         ExecutorIdentifier executorIdentifier = getExecutorIdentifier(executorEndpoint);
         // kill process on this machine
         if (isTaskAlive(executorIdentifier)) {
@@ -231,7 +211,7 @@ public class TaskSupervisor {
         return result;
     }
 
-    protected ExecutorIdentifier getExecutorIdentifier(ExecutorEndpoint executorEndpoint) {
+    public static ExecutorIdentifier getExecutorIdentifier(ExecutorEndpoint executorEndpoint) {
         return ExecutorIdentifierParser.parser(executorEndpoint.getIdentifier());
     }
 }

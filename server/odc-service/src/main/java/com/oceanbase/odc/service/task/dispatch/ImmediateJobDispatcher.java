@@ -29,7 +29,6 @@ import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.caller.JobEnvironmentFactory;
 import com.oceanbase.odc.service.task.config.JobConfiguration;
 import com.oceanbase.odc.service.task.config.JobConfigurationHolder;
-import com.oceanbase.odc.service.task.config.JobConfigurationValidator;
 import com.oceanbase.odc.service.task.config.K8sProperties;
 import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
 import com.oceanbase.odc.service.task.constants.JobConstants;
@@ -89,7 +88,6 @@ public class ImmediateJobDispatcher implements JobDispatcher {
     }
 
     private JobCaller getJobCaller(JobIdentity ji, JobContext context) {
-        JobConfigurationValidator.validComponent();
         TaskFrameworkService taskFrameworkService =
                 JobConfigurationHolder.getJobConfiguration().getTaskFrameworkService();
         JobConfiguration config = JobConfigurationHolder.getJobConfiguration();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 OceanBase.
+ * Copyright (c) 2024 OceanBase.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,23 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.supervisor.endpoint;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+package com.oceanbase.odc.service.task.caller;
 
 /**
+ * context for job caller
  * @author longpeng.zlp
- * @date 2024/10/28 16:41
+ * @date 2024/11/28 11:16
  */
-@Data
-@AllArgsConstructor
-public class ExecutorEndpoint {
-    private String protocol;
-    private String host;
-    private Integer supervisorPort;
-    private Integer executorPort;
-    private String identifier;
+public interface JobCallerContext {
 
-    public ExecutorEndpoint() {}
 }
