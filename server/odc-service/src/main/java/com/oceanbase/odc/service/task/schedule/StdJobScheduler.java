@@ -230,7 +230,7 @@ public class StdJobScheduler implements JobScheduler {
     }
 
     private void initStartPreparingJob() {
-        if (isTaskSupervisorEnabled()) {
+        if (TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties)) {
             log.info("start with supervisor preparing job");
             String key = "startPreparingSupervisorTaskJob";
             initCronJob(key,
