@@ -70,7 +70,7 @@ public class TaskSupervisor {
      */
     public ExecutorEndpoint startTask(JobContext context, ProcessConfig processConfig) throws JobException {
         String executorName = JobUtils.generateExecutorName(context.getJobIdentity());
-        String portString = tryGenerateListenPortToEnv(processConfig);
+        int port = tryGenerateListenPortToEnv(processConfig);
         // save job context to file
         writeJobContextToFile(context, processConfig);
         ProcessBuilder pb = new ExecutorProcessBuilderFactory().getProcessBuilder(
@@ -103,11 +103,11 @@ public class TaskSupervisor {
 
         // set process id as namespace
         ExecutorIdentifier executorIdentifier = DefaultExecutorIdentifier.builder().host(supervisorEndpoint.getHost())
-                .port(Integer.parseInt(portString))
+                .port(port)
                 .namespace(pid + "")
                 .executorName(executorName).build();
         return new ExecutorEndpoint(COMMAND_PROTOCOL_NAME, supervisorEndpoint.getHost(), supervisorEndpoint.getPort(),
-                portString, executorIdentifier.toString());
+                port, executorIdentifier.toString());
     }
 
     /**
@@ -143,24 +143,24 @@ public class TaskSupervisor {
      * @param processConfig
      * @return
      */
-    protected String tryGenerateListenPortToEnv(ProcessConfig processConfig) {
+    protected int tryGenerateListenPortToEnv(ProcessConfig processConfig) {
         String reportEnabled = getValue(processConfig.getEnvironments(), JobEnvKeyConstants.REPORT_ENABLED);
         // enable report mode, use push mode
         if (!StringUtils.equalsIgnoreCase(reportEnabled, "false")) {
             log.info("task run in push mode, port allocate not needed");
-            return "-1";
+            return -1;
         }
         // use pull mode, detect if port is given
         String givenPort = getValue(processConfig.getEnvironments(), JobEnvKeyConstants.ODC_EXECUTOR_PORT);
         if (null != givenPort && Integer.parseInt(givenPort) != 0) {
             log.info("task run in pull mode, allocatedPort = {}", givenPort);
-            return givenPort;
+            return Integer.valueOf(givenPort);
         }
         // port not valid, fill it
         int detectPort = PortDetector.getInstance().getPort();
         processConfig.getEnvironments().put(JobEnvKeyConstants.ODC_EXECUTOR_PORT, String.valueOf(detectPort));
         log.info("task run in pull mode, port not given, allocatePort={}", detectPort);
-        return String.valueOf(detectPort);
+        return detectPort;
     }
 
     protected String getValue(Map<String, String> map, String key) {

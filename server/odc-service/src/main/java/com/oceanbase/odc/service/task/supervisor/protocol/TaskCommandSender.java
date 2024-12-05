@@ -60,7 +60,7 @@ public class TaskCommandSender {
     protected void appendHttpURlBase(SupervisorEndpoint supervisorEndpoint, StringBuilder sb) {
         // create base
         sb.append("http://")
-            .append(supervisorEndpoint.getHost()).append(":")
-            .append(supervisorEndpoint.getPort());
+                .append(supervisorEndpoint.getHost()).append(":")
+                .append(supervisorEndpoint.getPort());
     }
 }

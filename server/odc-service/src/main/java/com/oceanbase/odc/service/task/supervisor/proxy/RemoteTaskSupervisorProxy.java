@@ -32,9 +32,9 @@ import com.oceanbase.odc.service.task.util.TaskExecutorClient;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * remote supervisor proxy to compatible with current desgin
- * 1. start command will be send to supervisor agent
- * 2. other command will be send to task
+ * remote supervisor proxy to compatible with current desgin 1. start command will be send to
+ * supervisor agent 2. other command will be send to task
+ * 
  * @author longpeng.zlp
  * @date 2024/10/29 14:42
  */
@@ -61,7 +61,8 @@ public class RemoteTaskSupervisorProxy implements TaskSupervisorProxy {
     @Override
     public boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext) throws JobException {
-        taskExecutorClient.stop(TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint), jobContext.getJobIdentity());
+        taskExecutorClient.stop(TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint),
+                jobContext.getJobIdentity());
         return true;
     }
 

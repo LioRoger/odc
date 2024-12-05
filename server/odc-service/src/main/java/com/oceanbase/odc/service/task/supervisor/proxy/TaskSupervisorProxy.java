@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 OceanBase.
+ * Copyright (c) 2023 OceanBase.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,15 +17,11 @@ package com.oceanbase.odc.service.task.supervisor.proxy;
 
 import java.io.IOException;
 
-import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.caller.ProcessConfig;
 import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.supervisor.endpoint.ExecutorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
-import com.oceanbase.odc.service.task.util.TaskExecutorClient;
-
-import lombok.extern.slf4j.Slf4j;
 
 /**
  * execute remote/local call for given supervisor endpoint
@@ -54,7 +50,7 @@ public interface TaskSupervisorProxy {
      * @return
      */
     boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint, JobContext jobContext)
-        throws IOException, JobException;
+            throws IOException, JobException;
 
     /**
      * detect can be finish command to supervisorEndpoint

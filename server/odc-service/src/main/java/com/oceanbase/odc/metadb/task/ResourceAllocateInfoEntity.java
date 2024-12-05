@@ -30,15 +30,13 @@ import org.hibernate.annotations.GenerationTime;
 import lombok.Data;
 
 /**
- * entity for supervisor endpoint
- * 
  * @author longpeng.zlp
- * @date 2024/11/29 15:32
+ * @date 2024/12/4 16:48
  */
 @Data
 @Entity
-@Table(name = "supervisor_endpoint")
-public class SupervisorEndpointEntity {
+@Table(name = "resource_allocate_info")
+public class ResourceAllocateInfoEntity {
 
     /**
      * Id for supervisor endpoint
@@ -49,35 +47,28 @@ public class SupervisorEndpointEntity {
     private Long id;
 
     /**
-     * host of supervisor endpoint
+     * task id relate to job_job
      */
-    @Column(name = "host", nullable = false)
-    private String host;
+    @Column(name = "task_id", nullable = false)
+    private Long taskId;
 
     /**
-     * port of supervisor endpoint
+     * resource allocate state, update by resource allocator, including PREPARING, AVAILABLE, FAILED
      */
-    @Column(name = "port", nullable = false)
-    private Integer port;
+    @Column(name = "resource_allocate_state", nullable = false)
+    private String resourceAllocateState;
 
     /**
-     * status of supervisor endpoint, candidate value is
-     * PREPARING,AVAILABLE,DESTROYED,UNAVAILABLE，ABANDON
+     * resource usage state update by resource user, including PREPARING, USING, FINISHED
      */
-    @Column(name = "status", nullable = false)
-    private String status;
+    @Column(name = "resource_usage_state", nullable = false)
+    private String resourceUsageState;
 
     /**
-     * load of supervisor endpoint, for task allocate
+     * supervisor endpoint, in format host:port
      */
-    @Column(name = "loads", nullable = false)
-    private Integer loads;
-
-    /**
-     * resourceID related to resource_resource, -1 means not related to any resource
-     */
-    @Column(name = "resource_id", nullable = false)
-    private Long resourceID;
+    @Column(name = "endpoint", nullable = false)
+    private String endpoint;
 
     /**
      * Record insertion time

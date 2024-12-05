@@ -40,10 +40,7 @@ public class TaskCommandDeserializer {
         switch (commandType) {
             case START:
                 return StartTaskCommand.fromJsonNode(objectNode);
-            case FINISH:
-            case MODIFY:
             case STOP:
-            case IS_ALIVE:
                 return GeneralTaskCommand.fromJsonNode(GeneralTaskCommand::new, objectNode, commandType);
             default:
                 throw new IllegalStateException("not support command type, str=" + commandType);

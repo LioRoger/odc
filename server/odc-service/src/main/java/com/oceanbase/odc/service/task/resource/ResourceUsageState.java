@@ -13,11 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.tools.dbbrowser.model;
+package com.oceanbase.odc.service.task.resource;
 
-import lombok.Data;
+import com.oceanbase.odc.common.util.StringUtils;
 
-@Data
-public class DBTablePartitionDefinition extends DBTableAbstractPartitionDefinition {
-    private DBTablePartitionDefinition parentPartitionDefinition;
+/**
+ * state for resource usage, only update by resource user
+ * 
+ * @author longpeng.zlp
+ * @date 2024/12/4 17:57
+ */
+public enum ResourceUsageState {
+    PREPARING,
+    USING,
+    FINISHED;
+
+    public static ResourceUsageState fromString(String allocateState) {
+        return ResourceUsageState.valueOf(StringUtils.upperCase(allocateState));
+    }
 }

@@ -33,8 +33,11 @@ import com.oceanbase.odc.service.task.config.JobConfiguration;
 import com.oceanbase.odc.service.task.config.JobConfigurationHolder;
 import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
 import com.oceanbase.odc.service.task.constants.JobConstants;
+import com.oceanbase.odc.service.task.enums.TaskRunMode;
 import com.oceanbase.odc.service.task.exception.TaskRuntimeException;
+import com.oceanbase.odc.service.task.resource.TaskResourceManager;
 import com.oceanbase.odc.service.task.service.TaskFrameworkService;
+import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,7 +48,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @DisallowConcurrentExecution
-public class DestroyResourceJob implements Job {
+public class ManagerResourceJob implements Job {
 
     private JobConfiguration configuration;
 
@@ -55,6 +58,27 @@ public class DestroyResourceJob implements Job {
         // scan terminate job
         TaskFrameworkService taskFrameworkService = configuration.getTaskFrameworkService();
         TaskFrameworkProperties taskFrameworkProperties = configuration.getTaskFrameworkProperties();
+        processTaskResource(configuration.getTaskResourceManager(), taskFrameworkProperties);
+        processRealResource(taskFrameworkProperties, taskFrameworkService);
+    }
+
+    private void processTaskResource(TaskResourceManager taskResourceManager,
+            TaskFrameworkProperties taskFrameworkProperties) {
+        if (!TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties)) {
+            return;
+        }
+        try {
+            taskResourceManager.execute();
+        } catch (Throwable e) {
+            log.warn("process task resource failed cause", e);
+        }
+    }
+
+    private void processRealResource(TaskFrameworkProperties taskFrameworkProperties,
+            TaskFrameworkService taskFrameworkService) {
+        if (!(taskFrameworkProperties.getRunMode() == TaskRunMode.K8S)) {
+            return;
+        }
         Page<ResourceEntity> resources = taskFrameworkService.findAbandonedResource(0,
                 taskFrameworkProperties.getSingleFetchDestroyExecutorJobRows());
         resources.forEach(a -> {

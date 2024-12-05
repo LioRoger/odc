@@ -57,7 +57,7 @@ public class LocalTaskCommandExecutor implements TaskCommandExecutor {
             case STOP:
                 return taskSupervisor.stopTask(generalTaskCommand.getExecutorEndpoint(),
                         generalTaskCommand.getJobContext());
-            case IS_ALIVE:
+            case IS_TASK_ALIVE:
                 return taskSupervisor.isTaskAlive(
                         ExecutorIdentifierParser.parser(generalTaskCommand.getExecutorEndpoint().getIdentifier()));
             default:

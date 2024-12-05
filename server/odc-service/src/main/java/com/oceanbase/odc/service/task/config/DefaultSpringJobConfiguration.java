@@ -24,6 +24,7 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.oceanbase.odc.common.event.LocalEventPublisher;
+import com.oceanbase.odc.metadb.task.ResourceAllocateInfoRepository;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
 import com.oceanbase.odc.service.common.model.HostProperties;
 import com.oceanbase.odc.service.connection.ConnectionService;
@@ -33,11 +34,12 @@ import com.oceanbase.odc.service.task.TaskService;
 import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.dispatch.ImmediateJobDispatcher;
 import com.oceanbase.odc.service.task.jasypt.JasyptEncryptorConfigProperties;
+import com.oceanbase.odc.service.task.resource.ProcessTaskResourceManager;
+import com.oceanbase.odc.service.task.resource.SupervisorAgentAllocator;
 import com.oceanbase.odc.service.task.schedule.DefaultTaskFrameworkDisabledHandler;
 import com.oceanbase.odc.service.task.schedule.JobCredentialProvider;
 import com.oceanbase.odc.service.task.schedule.StartJobRateLimiter;
 import com.oceanbase.odc.service.task.schedule.StartJobRateLimiterSupport;
-import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 import com.oceanbase.odc.service.task.schedule.provider.DefaultHostUrlProvider;
 import com.oceanbase.odc.service.task.schedule.provider.DefaultJobImageNameProvider;
 import com.oceanbase.odc.service.task.service.SpringTransactionManager;
@@ -47,6 +49,7 @@ import com.oceanbase.odc.service.task.supervisor.DefaultJobEventListener;
 import com.oceanbase.odc.service.task.supervisor.TaskSupervisorJobCaller;
 import com.oceanbase.odc.service.task.supervisor.proxy.LocalTaskSupervisorProxy;
 import com.oceanbase.odc.service.task.util.TaskExecutorClient;
+import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 
 /**
  * @author yaobin
@@ -68,7 +71,8 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         setConnectionService(ctx.getBean(ConnectionService.class));
         setTaskService(ctx.getBean(TaskService.class));
         setDaemonScheduler((Scheduler) ctx.getBean("taskFrameworkSchedulerFactoryBean"));
-        setTaskSupervisorScheduler((Scheduler) ctx.getBean("defaultScheduler"));
+        // TODO(tinker): return right scheduler
+        setTaskSupervisorScheduler((Scheduler) ctx.getBean("taskFrameworkSchedulerFactoryBean"));
 
         setJobDispatcher(new ImmediateJobDispatcher(ctx.getBean(ResourceManager.class)));
         setResourceManager(ctx.getBean(ResourceManager.class));
@@ -79,17 +83,28 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         }
         setTaskFrameworkService(tfs);
         setEventPublisher(publisher);
-        TaskExecutorClient  executorClient = ctx.getBean(TaskExecutorClient.class);
+        TaskExecutorClient executorClient = ctx.getBean(TaskExecutorClient.class);
         setTaskExecutorClient(executorClient);
-        setTaskSupervisorJobCaller(new TaskSupervisorJobCaller(new DefaultJobEventListener(), new LocalTaskSupervisorProxy(executorClient,
-            TaskSupervisorUtil.getDefaultSupervisorEndpoint(), JobConstants.ODC_AGENT_CLASS_NAME)));
+        setTaskSupervisorJobCaller(
+                new TaskSupervisorJobCaller(new DefaultJobEventListener(), new LocalTaskSupervisorProxy(executorClient,
+                        TaskSupervisorUtil.getDefaultSupervisorEndpoint(), JobConstants.ODC_AGENT_CLASS_NAME)));
         setTransactionManager(new SpringTransactionManager(ctx.getBean(TransactionTemplate.class)));
         initJobRateLimiter();
         setTaskFrameworkDisabledHandler(new DefaultTaskFrameworkDisabledHandler());
         setJasyptEncryptorConfigProperties(ctx.getBean(JasyptEncryptorConfigProperties.class));
         setHostProperties(ctx.getBean(HostProperties.class));
         setJobCredentialProvider(ctx.getBean(JobCredentialProvider.class));
-        setSupervisorEndpointRepository(ctx.getBean(SupervisorEndpointRepository.class));
+        TaskFrameworkProperties taskFrameworkProperties = ctx.getBean(TaskFrameworkProperties.class);
+        if (TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties)) {
+            // init resource allocator and resource manager
+            ProcessTaskResourceManager processTaskResourceManager =
+                    new ProcessTaskResourceManager(ctx.getBean(SupervisorEndpointRepository.class), ctx.getBean(
+                            ResourceAllocateInfoRepository.class));
+            processTaskResourceManager.initTaskResourceManager();
+            setTaskResourceManager(processTaskResourceManager);
+            setSupervisorAgentAllocator(
+                    new SupervisorAgentAllocator(ctx.getBean(ResourceAllocateInfoRepository.class)));
+        }
     }
 
     @Override

@@ -15,6 +15,7 @@
  */
 package com.oceanbase.odc.service.task.supervisor.endpoint;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 /**
@@ -22,8 +23,11 @@ import lombok.Data;
  * @date 2024/10/29 14:24
  */
 @Data
+@AllArgsConstructor
 public class SupervisorEndpoint {
     public static final SupervisorEndpoint SELF_ENDPOINT = new SupervisorEndpoint("localhost", -1);
-    private final String host;
-    private final Integer port;
+    private String host;
+    private Integer port;
+
+    public SupervisorEndpoint() {}
 }

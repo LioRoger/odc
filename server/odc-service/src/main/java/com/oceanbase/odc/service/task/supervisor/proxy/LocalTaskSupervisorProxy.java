@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 OceanBase.
+ * Copyright (c) 2023 OceanBase.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,6 @@ import com.oceanbase.odc.service.task.supervisor.TaskSupervisor;
 import com.oceanbase.odc.service.task.supervisor.endpoint.ExecutorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommandSender;
-import com.oceanbase.odc.service.task.supervisor.proxy.RemoteTaskSupervisorProxy;
-import com.oceanbase.odc.service.task.supervisor.proxy.TaskSupervisorProxy;
 import com.oceanbase.odc.service.task.util.TaskExecutorClient;
 
 import lombok.extern.slf4j.Slf4j;
@@ -40,12 +38,13 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
     // command sender to task executor
-    private final TaskExecutorClient        taskExecutorClient;
-    private final TaskSupervisor            taskSupervisor;
+    private final TaskExecutorClient taskExecutorClient;
+    private final TaskSupervisor taskSupervisor;
     private final RemoteTaskSupervisorProxy remoteTaskSupervisorProxy;
-    private final SupervisorEndpoint        localEndPoint;
+    private final SupervisorEndpoint localEndPoint;
 
-    public LocalTaskSupervisorProxy(TaskExecutorClient taskExecutorClient, SupervisorEndpoint supervisorEndpoint, String mainClassName) {
+    public LocalTaskSupervisorProxy(TaskExecutorClient taskExecutorClient, SupervisorEndpoint supervisorEndpoint,
+            String mainClassName) {
         this.taskExecutorClient = taskExecutorClient;
         this.localEndPoint = supervisorEndpoint;
         log.info("LocalTaskSupervisorProxy start with endpoint={}", supervisorEndpoint);
@@ -86,6 +85,7 @@ public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
 
     /**
      * modify task use
+     * 
      * @param supervisorEndpoint
      * @param executorEndpoint
      * @param jobContext
@@ -93,9 +93,11 @@ public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
      * @throws JobException
      */
     public boolean modifyTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-        JobContext jobContext) throws JobException {
-        taskExecutorClient.modifyJobParameters(TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint), jobContext.getJobIdentity(),
-            JsonUtils.toJson(jobContext.getJobParameters()));
+            JobContext jobContext) throws JobException {
+        taskExecutorClient.modifyJobParameters(
+                TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint),
+                jobContext.getJobIdentity(),
+                JsonUtils.toJson(jobContext.getJobParameters()));
         return true;
     }
 

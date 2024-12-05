@@ -27,6 +27,7 @@ import com.oceanbase.odc.service.task.listener.JobCallerEvent;
 import com.oceanbase.odc.service.task.schedule.JobIdentity;
 import com.oceanbase.odc.service.task.service.TaskFrameworkService;
 import com.oceanbase.odc.service.task.util.TaskExecutorClient;
+import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -140,6 +141,9 @@ public abstract class BaseJobCaller implements JobCaller {
         ResourceID resourceID = ResourceIDUtil.getResourceID(identifier, jobEntity);
         log.info("Preparing destroy,jobId={}, executorIdentifier={}.", ji.getId(), executorIdentifier);
         doFinish(ji, identifier, resourceID);
+        if (TaskSupervisorUtil.isTaskSupervisorEnabled(jobConfiguration.getTaskFrameworkProperties())) {
+            jobConfiguration.getSupervisorAgentAllocator().deallocateSupervisorEndpoint(jobEntity.getId());
+        }
     }
 
 

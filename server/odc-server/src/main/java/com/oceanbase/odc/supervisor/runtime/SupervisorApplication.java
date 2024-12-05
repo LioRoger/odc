@@ -39,7 +39,7 @@ public class SupervisorApplication {
         // TODO(longxuan): will be given in future release
         int port = 0;
         TaskSupervisor taskSupervisor =
-                new TaskSupervisor(new SupervisorEndpoint(SystemUtils.getLocalIpAddress(), String.valueOf(port)),
+                new TaskSupervisor(new SupervisorEndpoint(SystemUtils.getLocalIpAddress(), port),
                         JobConstants.ODC_AGENT_CLASS_NAME);
         taskSupervisorServer = new TaskSupervisorServer(port, new LocalTaskCommandExecutor(taskSupervisor));
         try {

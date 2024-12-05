@@ -133,7 +133,7 @@ public class TaskSupervisorServerTest {
     @Test
     public void testHeartbeat() throws IOException {
         String ret = taskCommandSender.heartbeat(
-            new SupervisorEndpoint("127.0.0.1", String.valueOf(taskSupervisorServer.getServerPort())));
+                new SupervisorEndpoint("127.0.0.1", String.valueOf(taskSupervisorServer.getServerPort())));
         GeneralTaskCommand receivedCommand = (GeneralTaskCommand) simpleTaskCommandExecutor.receivedTaskCommand;
         Assert.assertNull(receivedCommand);
         Assert.assertEquals(ret, "true");

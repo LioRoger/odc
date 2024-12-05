@@ -40,8 +40,6 @@ import com.oceanbase.odc.core.alarm.AlarmEventNames;
 import com.oceanbase.odc.core.alarm.AlarmUtils;
 import com.oceanbase.odc.core.shared.PreConditions;
 import com.oceanbase.odc.metadb.task.JobEntity;
-import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
-import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
 import com.oceanbase.odc.service.monitor.task.job.JobMonitorListener;
 import com.oceanbase.odc.service.schedule.model.TriggerConfig;
 import com.oceanbase.odc.service.schedule.model.TriggerStrategy;
@@ -56,16 +54,15 @@ import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.exception.TaskRuntimeException;
 import com.oceanbase.odc.service.task.listener.DefaultJobCallerListener;
 import com.oceanbase.odc.service.task.schedule.daemon.CheckRunningJob;
-import com.oceanbase.odc.service.task.schedule.daemon.DestroyResourceJob;
+import com.oceanbase.odc.service.task.schedule.daemon.DestroyExecutorJob;
 import com.oceanbase.odc.service.task.schedule.daemon.DoCancelingJob;
+import com.oceanbase.odc.service.task.schedule.daemon.ManagerResourceJob;
 import com.oceanbase.odc.service.task.schedule.daemon.PullTaskResultJob;
 import com.oceanbase.odc.service.task.schedule.daemon.StartPreparingJob;
 import com.oceanbase.odc.service.task.schedule.daemon.StartPreparingJobRunBySupervisorAgent;
-import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 import com.oceanbase.odc.service.task.service.JobRunnable;
-import com.oceanbase.odc.service.task.supervisor.SupervisorEndpointState;
-import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.util.JobUtils;
+import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 
 import cn.hutool.core.util.StrUtil;
 import lombok.NonNull;
@@ -93,7 +90,6 @@ public class StdJobScheduler implements JobScheduler {
         getEventPublisher().addEventListener(new JobMonitorListener());
 
         initDaemonJob();
-        tryRegisterTaskSupervisorAgent();
         log.info("Start StdJobScheduler succeed.");
     }
 
@@ -209,6 +205,7 @@ public class StdJobScheduler implements JobScheduler {
         initStartPreparingJob();
         initDoCancelingJob();
         initDestroyExecutorJob();
+        initManageResource();
     }
 
     private void initCheckRunningJob() {
@@ -234,14 +231,14 @@ public class StdJobScheduler implements JobScheduler {
             log.info("start with supervisor preparing job");
             String key = "startPreparingSupervisorTaskJob";
             initCronJob(key,
-                configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
-                StartPreparingJobRunBySupervisorAgent.class, configuration.getTaskSupervisorScheduler());
+                    configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
+                    StartPreparingJobRunBySupervisorAgent.class, configuration.getTaskSupervisorScheduler());
         } else {
             log.info("start with normal preparing job");
             String key = "startPreparingJob";
             initCronJob(key,
-                configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
-                StartPreparingJob.class, scheduler);
+                    configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
+                    StartPreparingJob.class, scheduler);
         }
     }
 
@@ -256,7 +253,17 @@ public class StdJobScheduler implements JobScheduler {
         String key = "destroyExecutorJob";
         initCronJob(key,
                 configuration.getTaskFrameworkProperties().getDestroyExecutorJobCronExpression(),
-                DestroyResourceJob.class, scheduler);
+                DestroyExecutorJob.class, scheduler);
+    }
+
+    private void initManageResource() {
+        if (TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties)
+                || taskFrameworkProperties.getRunMode() == TaskRunMode.K8S) {
+            String key = "managerResourceJob";
+            initCronJob(key,
+                    configuration.getTaskFrameworkProperties().getDestroyExecutorJobCronExpression(),
+                    ManagerResourceJob.class, configuration.getTaskSupervisorScheduler());
+        }
     }
 
     private void initCronJob(String key, String cronExpression, Class<? extends Job> jobClass, Scheduler scheduler) {
@@ -305,29 +312,6 @@ public class StdJobScheduler implements JobScheduler {
         PreConditions.notNull(configuration.getTaskFrameworkService(), "task framework service");
         PreConditions.notNull(configuration.getJobImageNameProvider(), "job image name provider");
         PreConditions.notNull(configuration.getTransactionManager(), "transaction manager");
-    }
-
-    private void tryRegisterTaskSupervisorAgent() {
-        // register to TaskSupervisorAgent
-        if (!(TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties) && taskFrameworkProperties.getRunMode() == TaskRunMode.PROCESS)) {
-            log.info("start with normal mode");
-            return;
-        }
-        log.info("start with supervisor agent mode, try register agent");
-        SupervisorEndpointRepository endpointRepository = configuration.getSupervisorEndpointRepository();
-        SupervisorEndpoint localEndpoint = TaskSupervisorUtil.getDefaultSupervisorEndpoint();
-        Optional<SupervisorEndpointEntity> registered = endpointRepository.findByHostAndPort(localEndpoint.getHost(), Integer.valueOf(localEndpoint.getPort()));
-        if (registered.isPresent()) {
-            endpointRepository.updateStatusByHostAndPort(localEndpoint.getHost(), localEndpoint.getPort(), SupervisorEndpointState.AVAILABLE.name());
-        } else {
-            SupervisorEndpointEntity created = new SupervisorEndpointEntity();
-            created.setHost(localEndpoint.getHost());
-            created.setPort(localEndpoint.getPort());
-            created.setResourceID(-1L);
-            created.setLoad(0);
-            created.setStatus(SupervisorEndpointState.AVAILABLE.name());
-            endpointRepository.save(created);
-        }
     }
 
 }

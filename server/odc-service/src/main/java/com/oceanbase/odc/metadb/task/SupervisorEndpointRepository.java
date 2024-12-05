@@ -26,8 +26,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import com.oceanbase.odc.service.task.enums.JobStatus;
-
 /**
  * @author yaobin
  * @date 2023-12-06
@@ -39,30 +37,34 @@ public interface SupervisorEndpointRepository extends JpaRepository<SupervisorEn
 
     @Transactional
     @Query(value = "update supervisor_endpoint set "
-            + " status=:statusToSet, load = :loadToSet"
+            + " status=:statusToSet, loads = :loadToSet"
             + " where host=:hostToFind and port=:portToFind", nativeQuery = true)
     @Modifying
-    int updateStatusAndLoadByHostAndPort(@Param("hostToFind") String host, @Param("portToFind") Integer port, @Param("loadToSet") Integer load,
+    int updateStatusAndLoadByHostAndPort(@Param("hostToFind") String host, @Param("portToFind") Integer port,
+            @Param("loadToSet") Integer load,
             @Param("statusToSet") String status);
 
     @Transactional
     @Query(value = "update supervisor_endpoint set "
-                   + " status=:statusToSet"
-                   + " where host=:hostToFind and port=:portToFind", nativeQuery = true)
+            + " status=:statusToSet"
+            + " where host=:hostToFind and port=:portToFind", nativeQuery = true)
     @Modifying
     int updateStatusByHostAndPort(@Param("hostToFind") String host, @Param("portToFind") Integer port,
-        @Param("statusToSet") String status);
+            @Param("statusToSet") String status);
 
     @Transactional
     @Query(value = "update supervisor_endpoint set "
-                   + "load = load + :loadToAdd"
-                   + " where host=:hostToFind and port=:portToFind", nativeQuery = true)
+            + "loads = loads + :loadToAdd"
+            + " where host=:hostToFind and port=:portToFind", nativeQuery = true)
     @Modifying
-    int addLoadByHostAndPort(@Param("hostToFind") String host, @Param("portToFind") Integer port, @Param("loadToAdd") Integer loadToAdd);
+    int addLoadByHostAndPort(@Param("hostToFind") String host, @Param("portToFind") Integer port,
+            @Param("loadToAdd") Integer loadToAdd);
 
     @Query(value = "SELECT * FROM supervisor_endpoint WHERE id = ?1", nativeQuery = true)
     Optional<SupervisorEndpointEntity> findByIdNative(Long id);
 
-    @Query(value = "SELECT * FROM supervisor_endpoint WHERE id = :hostToFind and port = :portToFind", nativeQuery = true)
-    Optional<SupervisorEndpointEntity> findByHostAndPort(@Param("hostToFind") String host, @Param("portToFind") Integer port);
+    @Query(value = "SELECT * FROM supervisor_endpoint WHERE host = :hostToFind and port = :portToFind",
+            nativeQuery = true)
+    Optional<SupervisorEndpointEntity> findByHostAndPort(@Param("hostToFind") String host,
+            @Param("portToFind") Integer port);
 }

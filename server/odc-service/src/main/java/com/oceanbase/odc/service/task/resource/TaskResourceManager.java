@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 OceanBase.
+ * Copyright (c) 2023 OceanBase.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,31 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.oceanbase.odc.service.task.resource;
-
-import java.util.Optional;
-
-import com.oceanbase.odc.service.task.caller.JobContext;
-import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 
 /**
  * resource manager for task
+ * 
  * @author longpeng.zlp
  * @date 2024/12/2 14:24
  */
 public interface TaskResourceManager {
-    /**
-     * try allocate supervisor endpoint for a job
-     * @param jobContext
-     * @return
-     */
-    Optional<SupervisorEndpoint> tryAllocateSupervisorEndpoint(JobContext jobContext);
 
     /**
-     * deallocate resource for a job
-     * @param jobContext
+     * try init task resourceManager
      */
-    void deallocateSupervisorEndpoint(JobContext jobContext);
+    void initTaskResourceManager();
 
+    /**
+     * execute task resource manage
+     */
+    void execute();
 }

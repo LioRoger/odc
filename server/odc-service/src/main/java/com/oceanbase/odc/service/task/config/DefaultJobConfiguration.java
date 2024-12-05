@@ -19,7 +19,6 @@ package com.oceanbase.odc.service.task.config;
 import org.quartz.Scheduler;
 
 import com.oceanbase.odc.common.event.EventPublisher;
-import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
 import com.oceanbase.odc.service.common.model.HostProperties;
 import com.oceanbase.odc.service.connection.ConnectionService;
 import com.oceanbase.odc.service.objectstorage.cloud.model.CloudEnvConfigurations;
@@ -27,6 +26,8 @@ import com.oceanbase.odc.service.resource.ResourceManager;
 import com.oceanbase.odc.service.task.TaskService;
 import com.oceanbase.odc.service.task.dispatch.JobDispatcher;
 import com.oceanbase.odc.service.task.jasypt.JasyptEncryptorConfigProperties;
+import com.oceanbase.odc.service.task.resource.SupervisorAgentAllocator;
+import com.oceanbase.odc.service.task.resource.TaskResourceManager;
 import com.oceanbase.odc.service.task.schedule.JobCredentialProvider;
 import com.oceanbase.odc.service.task.schedule.StartJobRateLimiter;
 import com.oceanbase.odc.service.task.schedule.TaskFrameworkDisabledHandler;
@@ -91,5 +92,8 @@ public abstract class DefaultJobConfiguration implements JobConfiguration {
 
     protected JobCredentialProvider jobCredentialProvider;
 
-    protected SupervisorEndpointRepository supervisorEndpointRepository;
+    protected TaskResourceManager taskResourceManager;
+
+    protected SupervisorAgentAllocator supervisorAgentAllocator;
+
 }
