@@ -181,7 +181,7 @@ public class ProcessTaskResourceManager implements TaskResourceManager {
         log.info("start with supervisor agent mode, try register agent");
         SupervisorEndpoint localEndpoint = TaskSupervisorUtil.getDefaultSupervisorEndpoint();
         Optional<SupervisorEndpointEntity> registered = supervisorEndpointRepository
-                .findByHostAndPort(localEndpoint.getHost(), Integer.valueOf(localEndpoint.getPort()));
+                .findByHostAndPort(localEndpoint.getHost(), localEndpoint.getPort());
         if (registered.isPresent()) {
             supervisorEndpointRepository.updateStatusByHostAndPort(localEndpoint.getHost(), localEndpoint.getPort(),
                     SupervisorEndpointState.AVAILABLE.name());
