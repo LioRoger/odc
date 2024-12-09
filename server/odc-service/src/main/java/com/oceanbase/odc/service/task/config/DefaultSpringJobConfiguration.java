@@ -86,8 +86,9 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         TaskExecutorClient executorClient = ctx.getBean(TaskExecutorClient.class);
         setTaskExecutorClient(executorClient);
         setTaskSupervisorJobCaller(
-                new TaskSupervisorJobCaller(new DefaultJobEventListener(), new LocalTaskSupervisorProxy(executorClient,
-                        TaskSupervisorUtil.getDefaultSupervisorEndpoint(), JobConstants.ODC_AGENT_CLASS_NAME)));
+                new TaskSupervisorJobCaller(new DefaultJobEventListener(), new LocalTaskSupervisorProxy(
+                        TaskSupervisorUtil.getDefaultSupervisorEndpoint(), JobConstants.ODC_AGENT_CLASS_NAME),
+                    executorClient));
         setTransactionManager(new SpringTransactionManager(ctx.getBean(TransactionTemplate.class)));
         initJobRateLimiter();
         setTaskFrameworkDisabledHandler(new DefaultTaskFrameworkDisabledHandler());

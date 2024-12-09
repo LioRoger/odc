@@ -15,6 +15,7 @@
  */
 package com.oceanbase.odc.service.task.supervisor;
 
+import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.caller.ProcessConfig;
 import com.oceanbase.odc.service.task.enums.JobCallerAction;
@@ -23,6 +24,8 @@ import com.oceanbase.odc.service.task.listener.JobCallerEvent;
 import com.oceanbase.odc.service.task.supervisor.endpoint.ExecutorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.proxy.LocalTaskSupervisorProxy;
+import com.oceanbase.odc.service.task.supervisor.proxy.TaskSupervisorProxy;
+import com.oceanbase.odc.service.task.util.TaskExecutorClient;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,13 +39,16 @@ import lombok.extern.slf4j.Slf4j;
 public class TaskSupervisorJobCaller {
     // event listener
     private final JobEventHandler jobEventHandler;
-    // super visor command
+    // supervisor command proxy to send command to supervisor endpoint
     private final LocalTaskSupervisorProxy taskSupervisorProxy;
+    // task executor client to send command to task directly
+    private final TaskExecutorClient taskExecutorClient;
 
     public TaskSupervisorJobCaller(JobEventHandler jobEventHandler,
-            LocalTaskSupervisorProxy taskSupervisorProxy) {
+            LocalTaskSupervisorProxy taskSupervisorProxy, TaskExecutorClient taskExecutorClient) {
         this.jobEventHandler = jobEventHandler;
         this.taskSupervisorProxy = taskSupervisorProxy;
+        this.taskExecutorClient = taskExecutorClient;
     }
 
     public ExecutorEndpoint startTask(SupervisorEndpoint supervisorEndpoint, JobContext jobContext,
@@ -60,11 +66,7 @@ public class TaskSupervisorJobCaller {
             return executorEndpoint;
         } catch (Exception e) {
             // try roll back
-            try {
-                stopTask(supervisorEndpoint, executorEndpoint, jobContext);
-            } catch (Throwable ex) {
-                log.warn("Start job failed, process stop failed too", ex);
-            }
+            stopTask(supervisorEndpoint, executorEndpoint, jobContext);
             // send failed event
             jobEventHandler
                     .onNewEvent(new JobCallerEvent(jobContext.getJobIdentity(), JobCallerAction.START, false, e));
@@ -72,26 +74,67 @@ public class TaskSupervisorJobCaller {
         }
     }
 
-    public boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws Exception {
+    public TaskCallerResult stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
+            JobContext jobContext) throws JobException {
         try {
-            // try stop
-            taskSupervisorProxy.stopTask(supervisorEndpoint, executorEndpoint, jobContext);
-            log.info("Stop job successfully, jobId={}.", jobContext.getJobIdentity().getId());
+            TaskCallerResult stopResult = null;
+            //1. send stop to task directly
+            stopResult = stopTaskDirectly(supervisorEndpoint, executorEndpoint, jobContext);
+            //2. check if supervisor is alive
+            if (!stopResult.getSucceed() && !taskSupervisorProxy.isSupervisorAlive(supervisorEndpoint)) {
+                log.info("supervisor not alive, endpoint = {}", supervisorEndpoint);
+                stopResult = TaskCallerResult.SUCCESS_RESULT;
+            }
+            //3. try stop it by supervisor agent
+            if (!stopResult.getSucceed() && taskSupervisorProxy.stopTask(supervisorEndpoint, executorEndpoint, jobContext)) {
+                stopResult = TaskCallerResult.SUCCESS_RESULT;
+            }
+            log.info("Stop job {}, jobId={}.", stopResult.getSucceed() ? "successfully" : "failed", jobContext.getJobIdentity().getId());
             jobEventHandler
-                    .onNewEvent(new JobCallerEvent(jobContext.getJobIdentity(), JobCallerAction.STOP, true, null));
-            return true;
+                    .onNewEvent(new JobCallerEvent(jobContext.getJobIdentity(), JobCallerAction.STOP, stopResult.getSucceed(), stopResult.getE()));
+            return stopResult;
         } catch (Exception e) {
             // handle stop exception
             jobEventHandler.onNewEvent(new JobCallerEvent(jobContext.getJobIdentity(), JobCallerAction.STOP, false, e));
-            throw new JobException("job be stop failed, jobId={0}.", e, jobContext.getJobIdentity().getId());
+            return TaskCallerResult.failed( new JobException("job be stop failed, jobId={0}.", e, jobContext.getJobIdentity().getId()));
         }
     }
 
-    public boolean modify(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext)
-            throws JobException {
-        return taskSupervisorProxy.modifyTask(supervisorEndpoint, executorEndpoint, jobContext);
+    /**
+     * stop task with http first
+     */
+    public TaskCallerResult stopTaskDirectly(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
+        JobContext jobContext) throws JobException {
+        try {
+            taskExecutorClient.stop(TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint),
+                jobContext.getJobIdentity());
+            return TaskCallerResult.SUCCESS_RESULT;
+        } catch (Exception e) {
+            log.info("stop task failed cause ", e);
+            return TaskCallerResult.failed(e);
+        }
+    }
+
+    /**
+     * modify task use task executor client
+     *
+     * @param supervisorEndpoint
+     * @param executorEndpoint
+     * @param jobContext
+     * @return
+     * @throws JobException
+     */
+    public TaskCallerResult modifyTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
+        JobContext jobContext) {
+        try {
+            taskExecutorClient.modifyJobParameters(
+                TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint),
+                jobContext.getJobIdentity(),
+                JsonUtils.toJson(jobContext.getJobParameters()));
+            return TaskCallerResult.SUCCESS_RESULT;
+        } catch (Exception e) {
+            return TaskCallerResult.failed(e);
+        }
     }
 
     /**
@@ -100,22 +143,21 @@ public class TaskSupervisorJobCaller {
      * @param jobContext
      * @return
      */
-    public boolean finish(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
+    public TaskCallerResult finish(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext)
             throws JobException {
+        TaskCallerResult taskCallerResult = TaskCallerResult.SUCCESS_RESULT;
         if (null == executorEndpoint) {
             log.info("job finished success, it's not created yet");
         } else {
             log.info("try finished job, executorEndpoint={}", executorEndpoint);
-            // target supervisor is down
-            if (!taskSupervisorProxy.isSupervisorAlive(supervisorEndpoint)) {
+            taskCallerResult = stopTask(supervisorEndpoint, executorEndpoint, jobContext);
+            if (!taskCallerResult.getSucceed()){
                 jobEventHandler.finishFailed(executorEndpoint, jobContext);
-            } else {
-                taskSupervisorProxy.stopTask(supervisorEndpoint, executorEndpoint, jobContext);
             }
         }
         jobEventHandler.afterFinished(null, jobContext);
-        return true;
+        return taskCallerResult;
     }
 
     /**
@@ -124,9 +166,9 @@ public class TaskSupervisorJobCaller {
      * @param jobContext
      * @return
      */
-    public boolean canBeFinish(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
+    public TaskCallerResult canBeFinish(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext)
             throws JobException {
-        return true;
+        return TaskCallerResult.SUCCESS_RESULT;
     }
 }

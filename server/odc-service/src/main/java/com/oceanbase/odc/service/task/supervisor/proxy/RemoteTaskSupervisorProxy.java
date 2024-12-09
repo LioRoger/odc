@@ -42,12 +42,9 @@ import lombok.extern.slf4j.Slf4j;
 public class RemoteTaskSupervisorProxy implements TaskSupervisorProxy {
     // command sender to supervisor client
     private final TaskCommandSender taskCommandSender;
-    // command sender to task executor
-    private final TaskExecutorClient taskExecutorClient;
 
-    public RemoteTaskSupervisorProxy(TaskCommandSender taskCommandSender, TaskExecutorClient taskExecutorClient) {
+    public RemoteTaskSupervisorProxy(TaskCommandSender taskCommandSender) {
         this.taskCommandSender = taskCommandSender;
-        this.taskExecutorClient = taskExecutorClient;
     }
 
     @Override
@@ -60,10 +57,9 @@ public class RemoteTaskSupervisorProxy implements TaskSupervisorProxy {
 
     @Override
     public boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws JobException {
-        taskExecutorClient.stop(TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint),
-                jobContext.getJobIdentity());
-        return true;
+            JobContext jobContext) throws IOException {
+        return Boolean.valueOf(taskCommandSender.sendCommand(supervisorEndpoint,
+            GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.STOP)));
     }
 
     @Override

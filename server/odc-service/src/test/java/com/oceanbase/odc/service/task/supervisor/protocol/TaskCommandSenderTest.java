@@ -28,7 +28,7 @@ public class TaskCommandSenderTest {
     @Test
     public void testCommandSenderBuildStartUrl() {
         TaskCommandSender taskCommandSender = new TaskCommandSender();
-        SupervisorEndpoint supervisorEndpoint = new SupervisorEndpoint("127.0.0.1", "9999");
+        SupervisorEndpoint supervisorEndpoint = new SupervisorEndpoint("127.0.0.1", 9999);
         TaskCommand taskCommand = StartTaskCommand.create(null, null);
         Assert.assertEquals(taskCommandSender.buildUrl(supervisorEndpoint, taskCommand),
                 "http://127.0.0.1:9999/task/command/start");
@@ -37,7 +37,7 @@ public class TaskCommandSenderTest {
     @Test
     public void testCommandSenderBuildNoneStartUrl() {
         TaskCommandSender taskCommandSender = new TaskCommandSender();
-        SupervisorEndpoint supervisorEndpoint = new SupervisorEndpoint("127.0.0.1", "9999");
+        SupervisorEndpoint supervisorEndpoint = new SupervisorEndpoint("127.0.0.1", 9999);
         for (CommandType commandType : CommandType.values()) {
             if (commandType == CommandType.START) {
                 continue;

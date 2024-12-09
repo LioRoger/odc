@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 OceanBase.
+ * Copyright (c) 2024 OceanBase.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,12 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package com.oceanbase.odc.service.task.supervisor;
 
+import lombok.Data;
+
 /**
- *
  * @author longpeng.zlp
- * @date 2024/10/30 10:51
+ * @date 2024/12/9 11:30
  */
-public class TaskStateChangeListener {
+@Data
+public class TaskCallerResult {
+    public static final TaskCallerResult SUCCESS_RESULT = new TaskCallerResult(true, null);
+    private final Boolean succeed;
+    private final Exception e;
+
+    public static TaskCallerResult failed(Exception e) {
+        return new TaskCallerResult(false, e);
+    }
 }

@@ -95,7 +95,7 @@ public class TaskSupervisorServerTest {
         });
         StartTaskCommand startTaskCommand = StartTaskCommand.create(jobContext, processConfig);
         String ret = taskCommandSender.sendCommand(
-                new SupervisorEndpoint("127.0.0.1", String.valueOf(taskSupervisorServer.getServerPort())),
+                new SupervisorEndpoint("127.0.0.1", taskSupervisorServer.getServerPort()),
                 startTaskCommand);
         Assert.assertEquals(ret, startTaskCommand.commandType().name().toLowerCase());
         StartTaskCommand receivedCommand = (StartTaskCommand) simpleTaskCommandExecutor.receivedTaskCommand;
@@ -109,14 +109,14 @@ public class TaskSupervisorServerTest {
 
     @Test
     public void testNoneStartCommandProcess() throws IOException {
-        ExecutorEndpoint endpoint = new ExecutorEndpoint("command", "127.0.0.1", "8989", "12345", "identifier");
+        ExecutorEndpoint endpoint = new ExecutorEndpoint("command", "127.0.0.1", 8989, 12345, "identifier");
         for (CommandType commandType : CommandType.values()) {
             if (commandType == CommandType.START) {
                 continue;
             }
             GeneralTaskCommand generalTaskCommand = GeneralTaskCommand.create(jobContext, endpoint, commandType);
             String ret = taskCommandSender.sendCommand(
-                    new SupervisorEndpoint("127.0.0.1", String.valueOf(taskSupervisorServer.getServerPort())),
+                    new SupervisorEndpoint("127.0.0.1",taskSupervisorServer.getServerPort()),
                     generalTaskCommand);
             GeneralTaskCommand receivedCommand = (GeneralTaskCommand) simpleTaskCommandExecutor.receivedTaskCommand;
             Assert.assertEquals(ret, generalTaskCommand.commandType().name().toLowerCase());
@@ -133,7 +133,7 @@ public class TaskSupervisorServerTest {
     @Test
     public void testHeartbeat() throws IOException {
         String ret = taskCommandSender.heartbeat(
-                new SupervisorEndpoint("127.0.0.1", String.valueOf(taskSupervisorServer.getServerPort())));
+                new SupervisorEndpoint("127.0.0.1", taskSupervisorServer.getServerPort()));
         GeneralTaskCommand receivedCommand = (GeneralTaskCommand) simpleTaskCommandExecutor.receivedTaskCommand;
         Assert.assertNull(receivedCommand);
         Assert.assertEquals(ret, "true");

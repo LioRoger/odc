@@ -37,18 +37,15 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
-    // command sender to task executor
-    private final TaskExecutorClient taskExecutorClient;
     private final TaskSupervisor taskSupervisor;
     private final RemoteTaskSupervisorProxy remoteTaskSupervisorProxy;
     private final SupervisorEndpoint localEndPoint;
 
-    public LocalTaskSupervisorProxy(TaskExecutorClient taskExecutorClient, SupervisorEndpoint supervisorEndpoint,
+    public LocalTaskSupervisorProxy(SupervisorEndpoint supervisorEndpoint,
             String mainClassName) {
-        this.taskExecutorClient = taskExecutorClient;
         this.localEndPoint = supervisorEndpoint;
         log.info("LocalTaskSupervisorProxy start with endpoint={}", supervisorEndpoint);
-        remoteTaskSupervisorProxy = new RemoteTaskSupervisorProxy(new TaskCommandSender(), taskExecutorClient);
+        remoteTaskSupervisorProxy = new RemoteTaskSupervisorProxy(new TaskCommandSender());
         taskSupervisor = new TaskSupervisor(supervisorEndpoint, mainClassName);
     }
 
@@ -68,7 +65,7 @@ public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
 
     @Override
     public boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws JobException {
+            JobContext jobContext) throws JobException, IOException {
         if (null == executorEndpoint) {
             throw new JobException("empty executor endpoint to stop");
         }
@@ -81,24 +78,6 @@ public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
                     supervisorEndpoint, executorEndpoint, jobContext);
             return remoteTaskSupervisorProxy.stopTask(supervisorEndpoint, executorEndpoint, jobContext);
         }
-    }
-
-    /**
-     * modify task use
-     * 
-     * @param supervisorEndpoint
-     * @param executorEndpoint
-     * @param jobContext
-     * @return
-     * @throws JobException
-     */
-    public boolean modifyTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-            JobContext jobContext) throws JobException {
-        taskExecutorClient.modifyJobParameters(
-                TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint),
-                jobContext.getJobIdentity(),
-                JsonUtils.toJson(jobContext.getJobParameters()));
-        return true;
     }
 
 
