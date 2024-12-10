@@ -18,16 +18,15 @@ package com.oceanbase.odc.service.task.supervisor.proxy;
 import java.io.IOException;
 
 import com.oceanbase.odc.common.json.JsonUtils;
+import com.oceanbase.odc.common.util.StringUtils;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.caller.ProcessConfig;
-import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.supervisor.endpoint.ExecutorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.protocol.CommandType;
 import com.oceanbase.odc.service.task.supervisor.protocol.GeneralTaskCommand;
 import com.oceanbase.odc.service.task.supervisor.protocol.StartTaskCommand;
 import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommandSender;
-import com.oceanbase.odc.service.task.util.TaskExecutorClient;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,23 +49,29 @@ public class RemoteTaskSupervisorProxy implements TaskSupervisorProxy {
     @Override
     public ExecutorEndpoint startTask(SupervisorEndpoint supervisorEndpoint, JobContext jobContext,
             ProcessConfig processConfig) throws IOException {
-        return JsonUtils.fromJson(
-                taskCommandSender.sendCommand(supervisorEndpoint, StartTaskCommand.create(jobContext, processConfig)),
-                ExecutorEndpoint.class);
+        String ret =
+                taskCommandSender.sendCommand(supervisorEndpoint, StartTaskCommand.create(jobContext, processConfig));
+        log.info("start task to supervisorEndpoint = {}, jobContext = {}, with response = {}", supervisorEndpoint,
+                jobContext, ret);
+        return JsonUtils.fromJson(ret, ExecutorEndpoint.class);
     }
 
     @Override
     public boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext) throws IOException {
-        return Boolean.valueOf(taskCommandSender.sendCommand(supervisorEndpoint,
-            GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.STOP)));
+        String ret = taskCommandSender.sendCommand(supervisorEndpoint,
+                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.STOP));
+        log.info("stop task to supervisorEndpoint = {}, with response = {}", supervisorEndpoint, ret);
+        return Boolean.parseBoolean(StringUtils.trim(ret));
     }
 
     @Override
     public boolean isTaskAlive(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext) throws IOException {
-        return Boolean.valueOf(taskCommandSender.sendCommand(supervisorEndpoint,
-                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.IS_TASK_ALIVE)));
+        String ret = taskCommandSender.sendCommand(supervisorEndpoint,
+                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.IS_TASK_ALIVE));
+        log.info("send task is alive command to supervisorEndpoint = {}, with response = {}", supervisorEndpoint, ret);
+        return Boolean.parseBoolean(StringUtils.trim(ret));
     }
 
     @Override

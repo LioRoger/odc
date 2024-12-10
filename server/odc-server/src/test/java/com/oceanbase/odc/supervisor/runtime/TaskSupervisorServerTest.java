@@ -116,7 +116,7 @@ public class TaskSupervisorServerTest {
             }
             GeneralTaskCommand generalTaskCommand = GeneralTaskCommand.create(jobContext, endpoint, commandType);
             String ret = taskCommandSender.sendCommand(
-                    new SupervisorEndpoint("127.0.0.1",taskSupervisorServer.getServerPort()),
+                    new SupervisorEndpoint("127.0.0.1", taskSupervisorServer.getServerPort()),
                     generalTaskCommand);
             GeneralTaskCommand receivedCommand = (GeneralTaskCommand) simpleTaskCommandExecutor.receivedTaskCommand;
             Assert.assertEquals(ret, generalTaskCommand.commandType().name().toLowerCase());

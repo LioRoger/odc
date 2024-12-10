@@ -44,7 +44,8 @@ public class SupervisorAgent {
         SupervisorApplication supervisorApplication = null;
         try {
             Modules.load();
-            supervisorApplication = new SupervisorApplication();
+            // config it
+            supervisorApplication = new SupervisorApplication(0);
             supervisorApplication.start(args);
             // send command context, then stop to compatible with previous logic
             JobContext jobContext = new JobContextResolver().resolveJobContext(args);

@@ -17,7 +17,6 @@ package com.oceanbase.odc.service.task.supervisor.proxy;
 
 import java.io.IOException;
 
-import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.caller.ProcessConfig;
 import com.oceanbase.odc.service.task.exception.JobException;
@@ -25,7 +24,6 @@ import com.oceanbase.odc.service.task.supervisor.TaskSupervisor;
 import com.oceanbase.odc.service.task.supervisor.endpoint.ExecutorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommandSender;
-import com.oceanbase.odc.service.task.util.TaskExecutorClient;
 
 import lombok.extern.slf4j.Slf4j;
 

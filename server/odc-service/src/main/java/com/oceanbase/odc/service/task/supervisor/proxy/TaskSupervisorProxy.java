@@ -71,4 +71,8 @@ public interface TaskSupervisorProxy {
     static String getExecutorIdentifierByExecutorEndpoint(ExecutorEndpoint executorEndpoint) {
         return executorEndpoint.getIdentifier();
     }
+
+    static String getExecutorEndpoint(ExecutorEndpoint executorEndpoint) {
+        return "http://" + executorEndpoint.getHost() + ":" + executorEndpoint.getExecutorPort();
+    }
 }

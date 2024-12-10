@@ -87,7 +87,7 @@ class ExecutorRequestHandler implements RequestHandler<SuccessResponse<Object>> 
             if (matcher.find()) {
                 JobIdentity ji = getJobIdentity(matcher);
                 TaskRuntimeInfo runtimeInfo = ThreadPoolTaskExecutor.getInstance().getTaskRuntimeInfo(ji);
-                boolean result = runtimeInfo.getTaskContainer().modify(JobUtils.fromJsonToMap(requestData));
+                boolean result = runtimeInfo.getTaskContainer().modifyTask(JobUtils.fromJsonToMap(requestData));
                 return Responses.ok(result);
             }
 

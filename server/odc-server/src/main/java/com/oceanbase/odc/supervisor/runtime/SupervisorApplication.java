@@ -33,11 +33,15 @@ import lombok.extern.slf4j.Slf4j;
 public class SupervisorApplication {
     @Getter
     private TaskSupervisorServer taskSupervisorServer;
+    private final int port;
     private AtomicBoolean stopped = new AtomicBoolean(false);
+
+    public SupervisorApplication(int port) {
+        this.port = port;
+    }
 
     public void start(String[] args) {
         // TODO(longxuan): will be given in future release
-        int port = 0;
         TaskSupervisor taskSupervisor =
                 new TaskSupervisor(new SupervisorEndpoint(SystemUtils.getLocalIpAddress(), port),
                         JobConstants.ODC_AGENT_CLASS_NAME);

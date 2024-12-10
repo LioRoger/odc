@@ -74,40 +74,48 @@ public class TaskSupervisorJobCaller {
         }
     }
 
+    /**
+     * stop task through supervisor agent, this will force stop task
+     */
     public TaskCallerResult stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext) throws JobException {
         try {
             TaskCallerResult stopResult = null;
-            //1. send stop to task directly
-            stopResult = stopTaskDirectly(supervisorEndpoint, executorEndpoint, jobContext);
-            //2. check if supervisor is alive
-            if (!stopResult.getSucceed() && !taskSupervisorProxy.isSupervisorAlive(supervisorEndpoint)) {
+            if (taskSupervisorProxy.isSupervisorAlive(supervisorEndpoint)) {
+                // supervisor is alive and stopped
+                boolean stopFlag = taskSupervisorProxy.stopTask(supervisorEndpoint, executorEndpoint, jobContext);
+                stopResult = stopFlag ? TaskCallerResult.SUCCESS_RESULT
+                        : TaskCallerResult
+                                .failed(new JobException("stop task failed for endpoint=" + executorEndpoint));
+                log.info("stop through agent with ret = {}, endpoint = {}", stopFlag, supervisorEndpoint);
+            } else {
+                // supervisor not alive can't determinate stop result
                 log.info("supervisor not alive, endpoint = {}", supervisorEndpoint);
-                stopResult = TaskCallerResult.SUCCESS_RESULT;
+                stopResult = TaskCallerResult.failed(new JobException(
+                        "supervisor agent not alive, can't determinate endpoint = " + executorEndpoint + " status"));
             }
-            //3. try stop it by supervisor agent
-            if (!stopResult.getSucceed() && taskSupervisorProxy.stopTask(supervisorEndpoint, executorEndpoint, jobContext)) {
-                stopResult = TaskCallerResult.SUCCESS_RESULT;
-            }
-            log.info("Stop job {}, jobId={}.", stopResult.getSucceed() ? "successfully" : "failed", jobContext.getJobIdentity().getId());
+            log.info("Stop job {}, jobId={}.", stopResult.getSucceed() ? "successfully" : "failed",
+                    jobContext.getJobIdentity().getId());
             jobEventHandler
-                    .onNewEvent(new JobCallerEvent(jobContext.getJobIdentity(), JobCallerAction.STOP, stopResult.getSucceed(), stopResult.getE()));
+                    .onNewEvent(new JobCallerEvent(jobContext.getJobIdentity(), JobCallerAction.STOP,
+                            stopResult.getSucceed(), stopResult.getE()));
             return stopResult;
         } catch (Exception e) {
             // handle stop exception
             jobEventHandler.onNewEvent(new JobCallerEvent(jobContext.getJobIdentity(), JobCallerAction.STOP, false, e));
-            return TaskCallerResult.failed( new JobException("job be stop failed, jobId={0}.", e, jobContext.getJobIdentity().getId()));
+            return TaskCallerResult
+                    .failed(new JobException("job be stop failed, jobId={0}.", e, jobContext.getJobIdentity().getId()));
         }
     }
 
     /**
-     * stop task with http first
+     * stop task with http endpoint
      */
     public TaskCallerResult stopTaskDirectly(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-        JobContext jobContext) throws JobException {
+            JobContext jobContext) throws JobException {
         try {
-            taskExecutorClient.stop(TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint),
-                jobContext.getJobIdentity());
+            taskExecutorClient.stop(TaskSupervisorProxy.getExecutorEndpoint(executorEndpoint),
+                    jobContext.getJobIdentity());
             return TaskCallerResult.SUCCESS_RESULT;
         } catch (Exception e) {
             log.info("stop task failed cause ", e);
@@ -125,12 +133,12 @@ public class TaskSupervisorJobCaller {
      * @throws JobException
      */
     public TaskCallerResult modifyTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
-        JobContext jobContext) {
+            JobContext jobContext) {
         try {
             taskExecutorClient.modifyJobParameters(
-                TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint),
-                jobContext.getJobIdentity(),
-                JsonUtils.toJson(jobContext.getJobParameters()));
+                    TaskSupervisorProxy.getExecutorIdentifierByExecutorEndpoint(executorEndpoint),
+                    jobContext.getJobIdentity(),
+                    JsonUtils.toJson(jobContext.getJobParameters()));
             return TaskCallerResult.SUCCESS_RESULT;
         } catch (Exception e) {
             return TaskCallerResult.failed(e);
@@ -152,7 +160,7 @@ public class TaskSupervisorJobCaller {
         } else {
             log.info("try finished job, executorEndpoint={}", executorEndpoint);
             taskCallerResult = stopTask(supervisorEndpoint, executorEndpoint, jobContext);
-            if (!taskCallerResult.getSucceed()){
+            if (!taskCallerResult.getSucceed()) {
                 jobEventHandler.finishFailed(executorEndpoint, jobContext);
             }
         }
