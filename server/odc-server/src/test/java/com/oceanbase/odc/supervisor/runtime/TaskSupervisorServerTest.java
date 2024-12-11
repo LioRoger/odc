@@ -38,16 +38,18 @@ import com.oceanbase.odc.service.task.supervisor.protocol.GeneralTaskCommand;
 import com.oceanbase.odc.service.task.supervisor.protocol.StartTaskCommand;
 import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommand;
 import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommandSender;
+import com.oceanbase.odc.service.task.supervisor.runtime.TaskCommandExecutor;
+import com.oceanbase.odc.service.task.supervisor.runtime.TaskSupervisorServer;
 
 /**
  * @author longpeng.zlp
  * @date 2024/11/25 16:58
  */
 public class TaskSupervisorServerTest {
-    private TaskSupervisorServer taskSupervisorServer;
+    private TaskSupervisorServer      taskSupervisorServer;
     private SimpleTaskCommandExecutor simpleTaskCommandExecutor;
-    private TaskCommandSender taskCommandSender;
-    private DefaultJobContext jobContext;
+    private TaskCommandSender         taskCommandSender;
+    private DefaultJobContext         jobContext;
 
     @Before
     public void setUp() throws InterruptedException {

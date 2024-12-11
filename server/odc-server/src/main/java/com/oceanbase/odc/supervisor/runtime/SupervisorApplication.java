@@ -21,6 +21,8 @@ import com.oceanbase.odc.common.util.SystemUtils;
 import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.supervisor.TaskSupervisor;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
+import com.oceanbase.odc.service.task.supervisor.runtime.LocalTaskCommandExecutor;
+import com.oceanbase.odc.service.task.supervisor.runtime.TaskSupervisorServer;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -32,8 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SupervisorApplication {
     @Getter
-    private TaskSupervisorServer taskSupervisorServer;
-    private final int port;
+    private       TaskSupervisorServer taskSupervisorServer;
+    private final int                  port;
     private AtomicBoolean stopped = new AtomicBoolean(false);
 
     public SupervisorApplication(int port) {

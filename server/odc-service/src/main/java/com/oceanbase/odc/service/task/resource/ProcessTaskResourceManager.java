@@ -28,12 +28,17 @@ import org.springframework.data.jpa.domain.Specification;
 
 import com.oceanbase.odc.common.jpa.SpecificationUtil;
 import com.oceanbase.odc.common.json.JsonUtils;
+import com.oceanbase.odc.common.util.SystemUtils;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoRepository;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
+import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.supervisor.SupervisorEndpointState;
+import com.oceanbase.odc.service.task.supervisor.TaskSupervisor;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
+import com.oceanbase.odc.service.task.supervisor.runtime.LocalTaskCommandExecutor;
+import com.oceanbase.odc.service.task.supervisor.runtime.TaskSupervisorServer;
 import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 
 import lombok.extern.slf4j.Slf4j;
@@ -46,7 +51,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ProcessTaskResourceManager implements TaskResourceManager {
     protected final SupervisorEndpointRepository supervisorEndpointRepository;
     protected final ResourceAllocateInfoRepository resourceAllocateInfoRepository;
-
+    protected TaskSupervisorServer taskSupervisorServer;
 
     public ProcessTaskResourceManager(SupervisorEndpointRepository supervisorEndpointRepository,
             ResourceAllocateInfoRepository resourceAllocateInfoRepository) {
@@ -56,7 +61,24 @@ public class ProcessTaskResourceManager implements TaskResourceManager {
 
     @Override
     public void initTaskResourceManager() {
-        tryRegisterTaskSupervisorAgent();
+        SupervisorEndpoint localEndpoint = TaskSupervisorUtil.getDefaultSupervisorEndpoint();
+        startTaskSupervisorServer(localEndpoint);
+        tryRegisterTaskSupervisorAgent(localEndpoint);
+    }
+
+    private void startTaskSupervisorServer(SupervisorEndpoint supervisorEndpoint) {
+        TaskSupervisor taskSupervisor =
+            new TaskSupervisor(supervisorEndpoint,
+                JobConstants.ODC_AGENT_CLASS_NAME);
+        taskSupervisorServer = new TaskSupervisorServer(supervisorEndpoint.getPort(), new LocalTaskCommandExecutor(taskSupervisor));
+        try {
+            taskSupervisorServer.start();
+            log.info("Starting task supervisor server.");
+            // current directly quit agent
+        } catch (Exception e) {
+            log.warn("Supervisor agent stopped", e);
+            throw e;
+        }
     }
 
     /**
@@ -177,9 +199,8 @@ public class ProcessTaskResourceManager implements TaskResourceManager {
     /**
      * register self to meta store
      */
-    private void tryRegisterTaskSupervisorAgent() {
+    private void tryRegisterTaskSupervisorAgent(SupervisorEndpoint localEndpoint) {
         log.info("start with supervisor agent mode, try register agent");
-        SupervisorEndpoint localEndpoint = TaskSupervisorUtil.getDefaultSupervisorEndpoint();
         Optional<SupervisorEndpointEntity> registered = supervisorEndpointRepository
                 .findByHostAndPort(localEndpoint.getHost(), localEndpoint.getPort());
         if (registered.isPresent()) {
