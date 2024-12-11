@@ -72,7 +72,7 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         setTaskService(ctx.getBean(TaskService.class));
         setDaemonScheduler((Scheduler) ctx.getBean("taskFrameworkSchedulerFactoryBean"));
         // TODO(tinker): return right scheduler
-        setTaskSupervisorScheduler((Scheduler) ctx.getBean("taskFrameworkSchedulerFactoryBean"));
+        setTaskSupervisorScheduler((Scheduler) ctx.getBean("defaultTaskSchedulerFactoryBean"));
 
         setJobDispatcher(new ImmediateJobDispatcher(ctx.getBean(ResourceManager.class)));
         setResourceManager(ctx.getBean(ResourceManager.class));

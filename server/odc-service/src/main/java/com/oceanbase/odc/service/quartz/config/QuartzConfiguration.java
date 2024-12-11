@@ -62,6 +62,17 @@ public class QuartzConfiguration {
         return schedulerFactoryBean;
     }
 
+    @Bean("defaultTaskSchedulerFactoryBean")
+    public SchedulerFactoryBean taskSchedulerFactoryBean(DataSource dataSource) {
+        SchedulerFactoryBean schedulerFactoryBean = new SchedulerFactoryBean();
+        schedulerFactoryBean.setDataSource(dataSource);
+        schedulerFactoryBean.setSchedulerName("ODC-TASK-SCHEDULER");
+        Properties properties = new Properties();
+        properties.put("org.quartz.threadPool.threadCount", "6");
+        schedulerFactoryBean.setQuartzProperties(properties);
+        return schedulerFactoryBean;
+    }
+
     @Bean("defaultScheduler")
     public Scheduler scheduler(
             @Autowired @Qualifier("defaultSchedulerFactoryBean") SchedulerFactoryBean schedulerFactoryBean)
@@ -70,5 +81,12 @@ public class QuartzConfiguration {
         scheduler.getListenerManager().addJobListener(odcJobListener);
         scheduler.getListenerManager().addTriggerListener(odcTriggerListener);
         return scheduler;
+    }
+
+    @Bean("defaultTaskScheduler")
+    public Scheduler taskScheduler(
+        @Autowired @Qualifier("defaultTaskSchedulerFactoryBean") SchedulerFactoryBean schedulerFactoryBean)
+        throws SchedulerException {
+        return schedulerFactoryBean.getScheduler();
     }
 }
