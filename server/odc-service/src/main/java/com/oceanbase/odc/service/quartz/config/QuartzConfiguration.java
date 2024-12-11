@@ -85,8 +85,8 @@ public class QuartzConfiguration {
 
     @Bean("defaultTaskScheduler")
     public Scheduler taskScheduler(
-        @Autowired @Qualifier("defaultTaskSchedulerFactoryBean") SchedulerFactoryBean schedulerFactoryBean)
-        throws SchedulerException {
+            @Autowired @Qualifier("defaultTaskSchedulerFactoryBean") SchedulerFactoryBean schedulerFactoryBean)
+            throws SchedulerException {
         return schedulerFactoryBean.getScheduler();
     }
 }

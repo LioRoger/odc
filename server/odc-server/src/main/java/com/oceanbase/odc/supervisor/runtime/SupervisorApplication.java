@@ -34,8 +34,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SupervisorApplication {
     @Getter
-    private       TaskSupervisorServer taskSupervisorServer;
-    private final int                  port;
+    private TaskSupervisorServer taskSupervisorServer;
+    private final int port;
     private AtomicBoolean stopped = new AtomicBoolean(false);
 
     public SupervisorApplication(int port) {

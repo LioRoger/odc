@@ -28,7 +28,6 @@ import org.springframework.data.jpa.domain.Specification;
 
 import com.oceanbase.odc.common.jpa.SpecificationUtil;
 import com.oceanbase.odc.common.json.JsonUtils;
-import com.oceanbase.odc.common.util.SystemUtils;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoRepository;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
@@ -68,9 +67,10 @@ public class ProcessTaskResourceManager implements TaskResourceManager {
 
     private void startTaskSupervisorServer(SupervisorEndpoint supervisorEndpoint) {
         TaskSupervisor taskSupervisor =
-            new TaskSupervisor(supervisorEndpoint,
-                JobConstants.ODC_AGENT_CLASS_NAME);
-        taskSupervisorServer = new TaskSupervisorServer(supervisorEndpoint.getPort(), new LocalTaskCommandExecutor(taskSupervisor));
+                new TaskSupervisor(supervisorEndpoint,
+                        JobConstants.ODC_AGENT_CLASS_NAME);
+        taskSupervisorServer =
+                new TaskSupervisorServer(supervisorEndpoint.getPort(), new LocalTaskCommandExecutor(taskSupervisor));
         try {
             taskSupervisorServer.start();
             log.info("Starting task supervisor server.");
