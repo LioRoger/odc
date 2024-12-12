@@ -81,6 +81,4 @@ management:
         include: "business,application"
   endpoint:
     prometheus:
-      enabled: true
-  server:
-    port: 8089
+      enabled: false

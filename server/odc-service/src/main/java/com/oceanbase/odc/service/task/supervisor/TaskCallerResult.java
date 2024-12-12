@@ -13,27 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.agent.runtime;
+package com.oceanbase.odc.service.task.supervisor;
 
-import java.util.concurrent.CountDownLatch;
-
-import lombok.extern.slf4j.Slf4j;
+import lombok.Data;
 
 /**
- * @author yaobin
- * @date 2023-12-13
- * @since 4.2.4
+ * @author longpeng.zlp
+ * @date 2024/12/9 11:30
  */
-@Slf4j
-class ExitHelper {
+@Data
+public class TaskCallerResult {
+    public static final TaskCallerResult SUCCESS_RESULT = new TaskCallerResult(true, null);
+    private final Boolean succeed;
+    private final Exception e;
 
-    private static final CountDownLatch LATCH = new CountDownLatch(1);
-
-    public static void await() {
-        try {
-            LATCH.await();
-        } catch (InterruptedException e) {
-            log.warn("Await thread be interrupted and exit:", e);
-        }
+    public static TaskCallerResult failed(Exception e) {
+        return new TaskCallerResult(false, e);
     }
 }

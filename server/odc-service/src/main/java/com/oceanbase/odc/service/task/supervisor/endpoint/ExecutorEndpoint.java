@@ -13,21 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.config;
+package com.oceanbase.odc.service.task.supervisor.endpoint;
 
-import com.oceanbase.odc.core.shared.PreConditions;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
 /**
- * @author yaobin
- * @date 2024-01-15
- * @since 4.2.4
+ * @author longpeng.zlp
+ * @date 2024/10/28 16:41
  */
-public class JobConfigurationValidator {
+@Data
+@AllArgsConstructor
+public class ExecutorEndpoint {
+    private String protocol;
+    private String host;
+    private Integer supervisorPort;
+    private Integer executorPort;
+    private String identifier;
 
-    public static void validComponent() {
-        JobConfiguration jobConfiguration = JobConfigurationHolder.getJobConfiguration();
-        PreConditions.notNull(jobConfiguration, "jobConfiguration");
-        PreConditions.notNull(jobConfiguration.getTaskFrameworkService(), "taskFrameworkService");
-        PreConditions.notNull(jobConfiguration.getTaskFrameworkProperties(), "taskFrameworkProperties");
-    }
+    public ExecutorEndpoint() {}
 }

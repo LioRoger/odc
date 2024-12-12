@@ -55,12 +55,14 @@ import com.oceanbase.odc.service.task.exception.TaskRuntimeException;
 import com.oceanbase.odc.service.task.listener.DefaultJobCallerListener;
 import com.oceanbase.odc.service.task.schedule.daemon.CheckRunningJob;
 import com.oceanbase.odc.service.task.schedule.daemon.DestroyExecutorJob;
-import com.oceanbase.odc.service.task.schedule.daemon.DestroyResourceJob;
 import com.oceanbase.odc.service.task.schedule.daemon.DoCancelingJob;
+import com.oceanbase.odc.service.task.schedule.daemon.ManagerResourceJob;
 import com.oceanbase.odc.service.task.schedule.daemon.PullTaskResultJob;
 import com.oceanbase.odc.service.task.schedule.daemon.StartPreparingJob;
+import com.oceanbase.odc.service.task.schedule.daemon.StartPreparingJobRunBySupervisorAgent;
 import com.oceanbase.odc.service.task.service.JobRunnable;
 import com.oceanbase.odc.service.task.util.JobUtils;
+import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 
 import cn.hutool.core.util.StrUtil;
 import lombok.NonNull;
@@ -180,7 +182,7 @@ public class StdJobScheduler implements JobScheduler {
             Map<String, String> eventMessage = AlarmUtils.createAlarmMapBuilder()
                     .item(AlarmUtils.ORGANIZATION_NAME, Optional.ofNullable(jobEntity.getOrganizationId()).map(
                             Object::toString).orElse(StrUtil.EMPTY))
-                    .item(AlarmUtils.TASK_JOB_ID_NAME, jobId.toString())
+                    .item(AlarmUtils.TASK_JOB_ID_NAME, String.valueOf(jobId))
                     .item(AlarmUtils.MESSAGE_NAME,
                             MessageFormat.format("Cancel job failed, jobId={0}, message={1}", jobEntity.getId(),
                                     e.getMessage()))
@@ -203,14 +205,14 @@ public class StdJobScheduler implements JobScheduler {
         initStartPreparingJob();
         initDoCancelingJob();
         initDestroyExecutorJob();
-        initDestroyResource();
+        initManageResource();
     }
 
     private void initCheckRunningJob() {
         String key = "checkRunningJob";
         initCronJob(key,
                 configuration.getTaskFrameworkProperties().getCheckRunningJobCronExpression(),
-                CheckRunningJob.class);
+                CheckRunningJob.class, scheduler);
     }
 
     private void initPullTaskResultJob() {
@@ -221,40 +223,50 @@ public class StdJobScheduler implements JobScheduler {
         String key = "pullTaskResultJob";
         initCronJob(key,
                 configuration.getTaskFrameworkProperties().getPullTaskResultJobCronExpression(),
-                PullTaskResultJob.class);
+                PullTaskResultJob.class, scheduler);
     }
 
     private void initStartPreparingJob() {
-        String key = "startPreparingJob";
-        initCronJob(key,
-                configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
-                StartPreparingJob.class);
+        if (TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties)) {
+            log.info("start with supervisor preparing job");
+            String key = "startPreparingSupervisorTaskJob";
+            initCronJob(key,
+                    configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
+                    StartPreparingJobRunBySupervisorAgent.class, configuration.getTaskSupervisorScheduler());
+        } else {
+            log.info("start with normal preparing job");
+            String key = "startPreparingJob";
+            initCronJob(key,
+                    configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
+                    StartPreparingJob.class, scheduler);
+        }
     }
 
     private void initDoCancelingJob() {
         String key = "doCancelingJob";
         initCronJob(key,
                 configuration.getTaskFrameworkProperties().getDoCancelingJobCronExpression(),
-                DoCancelingJob.class);
+                DoCancelingJob.class, scheduler);
     }
 
     private void initDestroyExecutorJob() {
         String key = "destroyExecutorJob";
         initCronJob(key,
                 configuration.getTaskFrameworkProperties().getDestroyExecutorJobCronExpression(),
-                DestroyExecutorJob.class);
+                DestroyExecutorJob.class, scheduler);
     }
 
-    private void initDestroyResource() {
-        if (configuration.getTaskFrameworkProperties().getRunMode() == TaskRunMode.K8S) {
-            String key = "destroyResourceJob";
+    private void initManageResource() {
+        if (TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties)
+                || taskFrameworkProperties.getRunMode() == TaskRunMode.K8S) {
+            String key = "managerResourceJob";
             initCronJob(key,
                     configuration.getTaskFrameworkProperties().getDestroyExecutorJobCronExpression(),
-                    DestroyResourceJob.class);
+                    ManagerResourceJob.class, configuration.getTaskSupervisorScheduler());
         }
     }
 
-    private void initCronJob(String key, String cronExpression, Class<? extends Job> jobClass) {
+    private void initCronJob(String key, String cronExpression, Class<? extends Job> jobClass, Scheduler scheduler) {
         TriggerConfig config = new TriggerConfig();
         config.setTriggerStrategy(TriggerStrategy.CRON);
         config.setCronExpression(cronExpression);
@@ -266,7 +278,7 @@ public class StdJobScheduler implements JobScheduler {
             JobDetail detail = JobBuilder.newJob(jobClass)
                     .withIdentity(JobKey.jobKey(key, group))
                     .build();
-            scheduleCronJob(triggerKey, trigger, detail);
+            scheduleCronJob(triggerKey, trigger, detail, scheduler);
         } catch (JobException e) {
             log.warn("build trigger {} failed:", key, e);
         } catch (SchedulerException e) {
@@ -274,7 +286,7 @@ public class StdJobScheduler implements JobScheduler {
         }
     }
 
-    private void scheduleCronJob(TriggerKey triggerKey, Trigger trigger, JobDetail detail)
+    private void scheduleCronJob(TriggerKey triggerKey, Trigger trigger, JobDetail detail, Scheduler scheduler)
             throws SchedulerException {
         if (scheduler.checkExists(triggerKey)) {
             if (scheduler.getTrigger(triggerKey) instanceof CronTrigger && trigger instanceof CronTrigger) {
