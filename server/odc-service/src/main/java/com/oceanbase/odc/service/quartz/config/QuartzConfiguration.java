@@ -26,6 +26,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.quartz.SchedulerFactoryBean;
 
 import com.oceanbase.odc.service.common.ConditionOnServer;
@@ -62,6 +63,7 @@ public class QuartzConfiguration {
         return schedulerFactoryBean;
     }
 
+    @Lazy
     @Bean("defaultTaskSchedulerFactoryBean")
     public SchedulerFactoryBean taskSchedulerFactoryBean(DataSource dataSource) {
         SchedulerFactoryBean schedulerFactoryBean = new SchedulerFactoryBean();
@@ -83,6 +85,7 @@ public class QuartzConfiguration {
         return scheduler;
     }
 
+    @Lazy
     @Bean("defaultTaskScheduler")
     public Scheduler taskScheduler(
             @Autowired @Qualifier("defaultTaskSchedulerFactoryBean") SchedulerFactoryBean schedulerFactoryBean)

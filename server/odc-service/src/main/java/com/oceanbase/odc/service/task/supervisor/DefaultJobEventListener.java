@@ -57,6 +57,7 @@ public class DefaultJobEventListener implements JobEventHandler {
             throw new JobException("Update job status to RUNNING failed, jobId={0}.",
                     jobContext.getJobIdentity().getId());
         }
+
     }
 
     @Override

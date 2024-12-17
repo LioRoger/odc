@@ -59,7 +59,11 @@ import com.oceanbase.odc.service.task.schedule.daemon.DoCancelingJob;
 import com.oceanbase.odc.service.task.schedule.daemon.ManagerResourceJob;
 import com.oceanbase.odc.service.task.schedule.daemon.PullTaskResultJob;
 import com.oceanbase.odc.service.task.schedule.daemon.StartPreparingJob;
-import com.oceanbase.odc.service.task.schedule.daemon.StartPreparingJobRunBySupervisorAgent;
+import com.oceanbase.odc.service.task.schedule.daemon.v2.DoFinishJobV2;
+import com.oceanbase.odc.service.task.schedule.daemon.v2.DoStopJobV2;
+import com.oceanbase.odc.service.task.schedule.daemon.v2.ManagerResourceJobV2;
+import com.oceanbase.odc.service.task.schedule.daemon.v2.PullTaskResultJobV2;
+import com.oceanbase.odc.service.task.schedule.daemon.v2.StartPreparingJobV2;
 import com.oceanbase.odc.service.task.service.JobRunnable;
 import com.oceanbase.odc.service.task.util.JobUtils;
 import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
@@ -88,8 +92,11 @@ public class StdJobScheduler implements JobScheduler {
 
         getEventPublisher().addEventListener(new DefaultJobCallerListener(this));
         getEventPublisher().addEventListener(new JobMonitorListener());
-
-        initDaemonJob();
+        if (taskFrameworkProperties.isEnableTaskSupervisorAgent()) {
+            initDaemonJobV2();
+        } else {
+            initDaemonJob();
+        }
         log.info("Start StdJobScheduler succeed.");
     }
 
@@ -208,6 +215,14 @@ public class StdJobScheduler implements JobScheduler {
         initManageResource();
     }
 
+    private void initDaemonJobV2() {
+        initStartPreparingJobV2();
+        initPullResultJobV2();
+        initDoStopJobV2();
+        initDoFinishJobV2();
+        initManagerResourceJobV2();
+    }
+
     private void initCheckRunningJob() {
         String key = "checkRunningJob";
         initCronJob(key,
@@ -226,20 +241,52 @@ public class StdJobScheduler implements JobScheduler {
                 PullTaskResultJob.class, scheduler);
     }
 
+    private void initStartPreparingJobV2() {
+        log.info("start with supervisor preparing job");
+        String key = "startPreparingSupervisorTaskJob";
+        initCronJob(key,
+                configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
+                StartPreparingJobV2.class, configuration.getTaskSupervisorScheduler());
+    }
+
+    private void initPullResultJobV2() {
+        log.info("start with supervisor pull task result job");
+        String key = "PullTaskResultJobV2";
+        initCronJob(key,
+                configuration.getTaskFrameworkProperties().getPullTaskResultJobCronExpression(),
+                PullTaskResultJobV2.class, configuration.getTaskSupervisorScheduler());
+    }
+
+    private void initDoStopJobV2() {
+        log.info("start with supervisor do stop job");
+        String key = "DoStopJobV2";
+        initCronJob(key,
+                configuration.getTaskFrameworkProperties().getDoCancelingJobCronExpression(),
+                DoStopJobV2.class, configuration.getTaskSupervisorScheduler());
+    }
+
+    private void initDoFinishJobV2() {
+        log.info("start with supervisor do finish job");
+        String key = "DoFinishJobV2";
+        initCronJob(key,
+                configuration.getTaskFrameworkProperties().getDestroyExecutorJobCronExpression(),
+                DoFinishJobV2.class, configuration.getTaskSupervisorScheduler());
+    }
+
+    private void initManagerResourceJobV2() {
+        log.info("start with supervisor manage resource job");
+        String key = "ManagerResourceJobV2";
+        initCronJob(key,
+                configuration.getTaskFrameworkProperties().getDestroyExecutorJobCronExpression(),
+                ManagerResourceJobV2.class, configuration.getTaskSupervisorScheduler());
+    }
+
     private void initStartPreparingJob() {
-        if (TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties)) {
-            log.info("start with supervisor preparing job");
-            String key = "startPreparingSupervisorTaskJob";
-            initCronJob(key,
-                    configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
-                    StartPreparingJobRunBySupervisorAgent.class, configuration.getTaskSupervisorScheduler());
-        } else {
-            log.info("start with normal preparing job");
-            String key = "startPreparingJob";
-            initCronJob(key,
-                    configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
-                    StartPreparingJob.class, scheduler);
-        }
+        log.info("start with normal preparing job");
+        String key = "startPreparingJob";
+        initCronJob(key,
+                configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
+                StartPreparingJob.class, scheduler);
     }
 
     private void initDoCancelingJob() {
@@ -262,7 +309,7 @@ public class StdJobScheduler implements JobScheduler {
             String key = "managerResourceJob";
             initCronJob(key,
                     configuration.getTaskFrameworkProperties().getDestroyExecutorJobCronExpression(),
-                    ManagerResourceJob.class, configuration.getTaskSupervisorScheduler());
+                    ManagerResourceJob.class, scheduler);
         }
     }
 
@@ -306,7 +353,11 @@ public class StdJobScheduler implements JobScheduler {
                 "checkRunningJobCronExpression");
         PreConditions.notNull(configuration.getTaskFrameworkProperties().getStartPreparingJobCronExpression(),
                 "startPreparingJobCronExpression");
-        PreConditions.notNull(configuration.getDaemonScheduler(), "quartz scheduler");
+        if (!taskFrameworkProperties.isEnableTaskSupervisorAgent()) {
+            PreConditions.notNull(configuration.getDaemonScheduler(), "quartz scheduler");
+        } else {
+            PreConditions.notNull(configuration.getTaskSupervisorScheduler(), "quartz task scheduler");
+        }
         PreConditions.notNull(configuration.getJobDispatcher(), "job dispatcher");
         PreConditions.notNull(configuration.getHostUrlProvider(), "host url provider");
         PreConditions.notNull(configuration.getTaskFrameworkService(), "task framework service");

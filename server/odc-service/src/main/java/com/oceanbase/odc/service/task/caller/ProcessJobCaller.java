@@ -74,7 +74,7 @@ public class ProcessJobCaller extends BaseJobCaller {
         ExecutorEndpoint executorEndpoint = buildExecutorEndpoint(ei);
         JobContext jobContext = createJobContext(ji);
         if (isSameTaskSupervisor(executorEndpoint, taskSupervisor.getSupervisorEndpoint())) {
-            taskSupervisor.stopTask(executorEndpoint, jobContext);
+            taskSupervisor.destroyTask(executorEndpoint, jobContext);
             updateExecutorDestroyed(ji);
             return;
         }

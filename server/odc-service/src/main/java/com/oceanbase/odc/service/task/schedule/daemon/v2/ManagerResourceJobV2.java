@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.schedule.daemon;
+package com.oceanbase.odc.service.task.schedule.daemon.v2;
 
 import java.text.MessageFormat;
 import java.util.Map;
@@ -35,18 +35,21 @@ import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
 import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.enums.TaskRunMode;
 import com.oceanbase.odc.service.task.exception.TaskRuntimeException;
+import com.oceanbase.odc.service.task.resource.TaskResourceManager;
 import com.oceanbase.odc.service.task.service.TaskFrameworkService;
+import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * @author yaobin
- * @date 2024-01-22
- * @since 4.2.4
+ * manage resource for task. resource strategy should be implement here
+ *
+ * @author longpeng.zlp
+ * @date 2024-12-17
  */
 @Slf4j
 @DisallowConcurrentExecution
-public class ManagerResourceJob implements Job {
+public class ManagerResourceJobV2 implements Job {
 
     private JobConfiguration configuration;
 
@@ -56,7 +59,17 @@ public class ManagerResourceJob implements Job {
         // scan terminate job
         TaskFrameworkService taskFrameworkService = configuration.getTaskFrameworkService();
         TaskFrameworkProperties taskFrameworkProperties = configuration.getTaskFrameworkProperties();
+        processTaskResource(configuration.getTaskResourceManager(), taskFrameworkProperties);
         processRealResource(taskFrameworkProperties, taskFrameworkService);
+    }
+
+    private void processTaskResource(TaskResourceManager taskResourceManager,
+            TaskFrameworkProperties taskFrameworkProperties) {
+        try {
+            taskResourceManager.execute();
+        } catch (Throwable e) {
+            log.warn("process task resource failed cause", e);
+        }
     }
 
     private void processRealResource(TaskFrameworkProperties taskFrameworkProperties,

@@ -43,13 +43,14 @@ public interface TaskSupervisorProxy {
             throws JobException, IOException;
 
     /**
-     * execute stop task command to supervisorEndpoint
+     * execute destroy task command to supervisorEndpoint. this will take most effort to make sure task
+     * process quit
      * 
      * @param supervisorEndpoint
      * @param jobContext
      * @return
      */
-    boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint, JobContext jobContext)
+    boolean destroyTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint, JobContext jobContext)
             throws IOException, JobException;
 
     /**

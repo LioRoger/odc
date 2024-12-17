@@ -17,6 +17,7 @@
 package com.oceanbase.odc.service.task.config;
 
 import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;
@@ -70,9 +71,12 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         setJobImageNameProvider(new DefaultJobImageNameProvider(this::getTaskFrameworkProperties));
         setConnectionService(ctx.getBean(ConnectionService.class));
         setTaskService(ctx.getBean(TaskService.class));
-        setDaemonScheduler((Scheduler) ctx.getBean("taskFrameworkSchedulerFactoryBean"));
-        // TODO(tinker): return right scheduler
-        setTaskSupervisorScheduler((Scheduler) ctx.getBean("defaultTaskSchedulerFactoryBean"));
+        TaskFrameworkProperties taskFrameworkProperties = getTaskFrameworkProperties();
+        if (!taskFrameworkProperties.isEnableTaskSupervisorAgent()) {
+            setDaemonScheduler((Scheduler) ctx.getBean("taskFrameworkSchedulerFactoryBean"));
+        } else {
+            setTaskSupervisorScheduler((Scheduler) ctx.getBean("defaultTaskSchedulerFactoryBean"));
+        }
 
         setJobDispatcher(new ImmediateJobDispatcher(ctx.getBean(ResourceManager.class)));
         setResourceManager(ctx.getBean(ResourceManager.class));
@@ -83,7 +87,7 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         }
         setTaskFrameworkService(tfs);
         setEventPublisher(publisher);
-        TaskExecutorClient executorClient = ctx.getBean(TaskExecutorClient.class);
+        TaskExecutorClient executorClient = new TaskExecutorClient();
         setTaskExecutorClient(executorClient);
         setTaskSupervisorJobCaller(
                 new TaskSupervisorJobCaller(new DefaultJobEventListener(), new LocalTaskSupervisorProxy(
@@ -95,7 +99,6 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         setJasyptEncryptorConfigProperties(ctx.getBean(JasyptEncryptorConfigProperties.class));
         setHostProperties(ctx.getBean(HostProperties.class));
         setJobCredentialProvider(ctx.getBean(JobCredentialProvider.class));
-        TaskFrameworkProperties taskFrameworkProperties = ctx.getBean(TaskFrameworkProperties.class);
         if (TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties)) {
             // init resource allocator and resource manager
             ProcessTaskResourceManager processTaskResourceManager =

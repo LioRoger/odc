@@ -171,12 +171,16 @@ public class TaskSupervisor {
     }
 
     /**
-     * stop task
+     * destroy task, this will kill task application and make sure task process has quit
      * 
      * @param jobContext
      */
-    public boolean stopTask(ExecutorEndpoint executorEndpoint, JobContext jobContext) throws JobException {
+    public boolean destroyTask(ExecutorEndpoint executorEndpoint, JobContext jobContext) throws JobException {
         ExecutorIdentifier executorIdentifier = getExecutorIdentifier(executorEndpoint);
+        return destroyTask(executorIdentifier);
+    }
+
+    public boolean destroyTask(ExecutorIdentifier executorIdentifier) throws JobException {
         // kill process on this machine
         if (isTaskAlive(executorIdentifier)) {
             long pid = Long.parseLong(executorIdentifier.getNamespace());
@@ -188,14 +192,16 @@ public class TaskSupervisor {
         return true;
     }
 
-    protected void doDestroyInternal(ExecutorIdentifier identifier) throws JobException {
+    public void doDestroyInternal(ExecutorIdentifier identifier) throws JobException {
         long pid = Long.parseLong(identifier.getNamespace());
         boolean result = SystemUtils.killProcessByPid(pid);
         if (result) {
             log.info("Destroy succeed by kill process, executorIdentifier={},  pid={}", identifier, pid);
         } else {
-            throw new JobException(
-                    "Destroy executor failed by kill process, identifier={0}, pid{1}=", identifier, pid);
+            if (isTaskAlive(identifier)) {
+                throw new JobException(
+                        "Destroy executor failed by kill process, identifier={0}, pid{1}=", identifier, pid);
+            }
         }
     }
 

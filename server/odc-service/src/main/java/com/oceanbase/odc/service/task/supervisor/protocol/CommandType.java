@@ -21,7 +21,7 @@ package com.oceanbase.odc.service.task.supervisor.protocol;
  */
 public enum CommandType {
     START,
-    STOP,
+    DESTROY,
     IS_TASK_ALIVE
 }
 

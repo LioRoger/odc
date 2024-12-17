@@ -36,6 +36,8 @@ import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.supervisor.SupervisorEndpointState;
 import com.oceanbase.odc.service.task.supervisor.TaskSupervisor;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
+import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommandSender;
+import com.oceanbase.odc.service.task.supervisor.proxy.RemoteTaskSupervisorProxy;
 import com.oceanbase.odc.service.task.supervisor.runtime.LocalTaskCommandExecutor;
 import com.oceanbase.odc.service.task.supervisor.runtime.TaskSupervisorServer;
 import com.oceanbase.odc.service.task.util.TaskSupervisorUtil;
@@ -51,11 +53,13 @@ public class ProcessTaskResourceManager implements TaskResourceManager {
     protected final SupervisorEndpointRepository supervisorEndpointRepository;
     protected final ResourceAllocateInfoRepository resourceAllocateInfoRepository;
     protected TaskSupervisorServer taskSupervisorServer;
+    protected final RemoteTaskSupervisorProxy remoteTaskSupervisorProxy;
 
     public ProcessTaskResourceManager(SupervisorEndpointRepository supervisorEndpointRepository,
             ResourceAllocateInfoRepository resourceAllocateInfoRepository) {
         this.supervisorEndpointRepository = supervisorEndpointRepository;
         this.resourceAllocateInfoRepository = resourceAllocateInfoRepository;
+        this.remoteTaskSupervisorProxy = new RemoteTaskSupervisorProxy(new TaskCommandSender());
     }
 
     @Override
@@ -189,11 +193,16 @@ public class ProcessTaskResourceManager implements TaskResourceManager {
         supervisorEndpointEntities = supervisorEndpointEntities.stream()
                 .sorted((s1, s2) -> Integer.compare(s1.getLoads(), s2.getLoads())).collect(
                         Collectors.toList());
-        SupervisorEndpointEntity tmp = supervisorEndpointEntities.get(0);
-        SupervisorEndpoint ret = new SupervisorEndpoint(tmp.getHost(), tmp.getPort());
-        // each task means one load
-        supervisorEndpointRepository.addLoadByHostAndPort(tmp.getHost(), tmp.getPort(), 1);
-        return ret;
+        for (SupervisorEndpointEntity tmp : supervisorEndpointEntities) {
+            SupervisorEndpoint ret = new SupervisorEndpoint(tmp.getHost(), tmp.getPort());
+            // TODO(longxuan): handle unreached supervisor
+            if (remoteTaskSupervisorProxy.isSupervisorAlive(ret)) {
+                // each task means one load
+                supervisorEndpointRepository.addLoadByHostAndPort(tmp.getHost(), tmp.getPort(), 1);
+                return ret;
+            }
+        }
+        return null;
     }
 
     /**

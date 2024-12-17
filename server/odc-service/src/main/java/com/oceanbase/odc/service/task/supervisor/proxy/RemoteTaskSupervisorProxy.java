@@ -57,10 +57,10 @@ public class RemoteTaskSupervisorProxy implements TaskSupervisorProxy {
     }
 
     @Override
-    public boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
+    public boolean destroyTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext) throws IOException {
         String ret = taskCommandSender.sendCommand(supervisorEndpoint,
-                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.STOP));
+                GeneralTaskCommand.create(jobContext, executorEndpoint, CommandType.DESTROY));
         log.info("stop task to supervisorEndpoint = {}, with response = {}", supervisorEndpoint, ret);
         return Boolean.parseBoolean(StringUtils.trim(ret));
     }

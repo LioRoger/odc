@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.schedule.daemon;
+package com.oceanbase.odc.service.task.schedule.daemon.v2;
 
 import java.text.MessageFormat;
 import java.util.Map;
@@ -48,6 +48,7 @@ import com.oceanbase.odc.service.task.service.TaskFrameworkService;
 import com.oceanbase.odc.service.task.supervisor.endpoint.ExecutorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.util.JobDateUtils;
+import com.oceanbase.odc.service.task.util.JobUtils;
 
 import cn.hutool.core.util.StrUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -60,7 +61,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 @DisallowConcurrentExecution
-public class StartPreparingJobRunBySupervisorAgent implements Job {
+public class StartPreparingJobV2 implements Job {
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -75,7 +76,7 @@ public class StartPreparingJobRunBySupervisorAgent implements Job {
         // scan preparing job
         TaskFrameworkService taskFrameworkService = configuration.getTaskFrameworkService();
         Page<JobEntity> jobs = taskFrameworkService.find(
-                Lists.newArrayList(JobStatus.PREPARING, JobStatus.RETRYING), 0,
+                Lists.newArrayList(JobStatus.PREPARING), 0,
                 taskFrameworkProperties.getSingleFetchPreparingJobRows());
 
         for (JobEntity jobEntity : jobs) {
@@ -84,8 +85,9 @@ public class StartPreparingJobRunBySupervisorAgent implements Job {
             }
             try {
                 if (checkJobIsExpired(jobEntity)) {
-                    taskFrameworkService.updateStatusDescriptionByIdOldStatus(jobEntity.getId(),
-                            jobEntity.getStatus(), JobStatus.CANCELED, "Job expired and failed.");
+                    // expired task transfer to timeout, to try to send stop command
+                    JobUtils.updateStatusAndCheck(jobEntity.getId(), jobEntity.getStatus(), JobStatus.TIMEOUT,
+                            taskFrameworkService);
                 } else {
                     JobContext jobContext =
                             new DefaultJobContextBuilder().build(jobEntity);
@@ -106,39 +108,34 @@ public class StartPreparingJobRunBySupervisorAgent implements Job {
 
     private void startJob(SupervisorEndpoint supervisorEndpoint, JobConfiguration configuration, JobContext jobContext,
             JobEntity jobEntity) {
-        if (jobEntity.getStatus() == JobStatus.PREPARING || jobEntity.getStatus() == JobStatus.RETRYING) {
-            // todo user id should be not null when submit job
-            if (jobEntity.getCreatorId() != null) {
-                TraceContextHolder.setUserId(jobEntity.getCreatorId());
-            }
+        // todo user id should be not null when submit job
+        if (jobEntity.getCreatorId() != null) {
+            TraceContextHolder.setUserId(jobEntity.getCreatorId());
+        }
 
-            log.info("Prepare start job, jobId={}, currentStatus={}.",
-                    jobEntity.getId(), jobEntity.getStatus());
-            ProcessJobCaller jobCaller = JobCallerBuilder.buildProcessCaller(jobContext,
-                    new JobEnvironmentFactory().build(jobContext, TaskRunMode.PROCESS));
-            try {
-                ExecutorEndpoint executorEndpoint = configuration.getTaskSupervisorJobCaller()
-                        .startTask(supervisorEndpoint, jobContext, jobCaller.getProcessConfig());
-                log.info("start job success with endpoint={}", executorEndpoint);
-            } catch (JobException e) {
-                Map<String, String> eventMessage = AlarmUtils.createAlarmMapBuilder()
-                        .item(AlarmUtils.ORGANIZATION_NAME, Optional.ofNullable(jobEntity.getOrganizationId()).map(
-                                Object::toString).orElse(StrUtil.EMPTY))
-                        .item(AlarmUtils.TASK_JOB_ID_NAME, String.valueOf(jobEntity.getId()))
-                        .item(AlarmUtils.MESSAGE_NAME,
-                                MessageFormat.format("Start job failed, jobId={0}, message={1}",
-                                        jobEntity.getId(),
-                                        e.getMessage()))
-                        .build();
-                AlarmUtils.alarm(AlarmEventNames.TASK_START_FAILED, eventMessage);
-                // rollback load
-                configuration.getSupervisorAgentAllocator()
-                        .deallocateSupervisorEndpoint(jobContext.getJobIdentity().getId());
-                throw new TaskRuntimeException(e);
-            }
-        } else {
-            log.warn("Job {} current status is {} but not preparing or retrying, start explain is aborted.",
-                    jobEntity.getId(), jobEntity.getStatus());
+        log.info("Prepare start job, jobId={}, currentStatus={}.",
+                jobEntity.getId(), jobEntity.getStatus());
+        ProcessJobCaller jobCaller = JobCallerBuilder.buildProcessCaller(jobContext,
+                new JobEnvironmentFactory().build(jobContext, TaskRunMode.PROCESS));
+        try {
+            ExecutorEndpoint executorEndpoint = configuration.getTaskSupervisorJobCaller()
+                    .startTask(supervisorEndpoint, jobContext, jobCaller.getProcessConfig());
+            log.info("start job success with endpoint={}", executorEndpoint);
+        } catch (JobException e) {
+            Map<String, String> eventMessage = AlarmUtils.createAlarmMapBuilder()
+                    .item(AlarmUtils.ORGANIZATION_NAME, Optional.ofNullable(jobEntity.getOrganizationId()).map(
+                            Object::toString).orElse(StrUtil.EMPTY))
+                    .item(AlarmUtils.TASK_JOB_ID_NAME, String.valueOf(jobEntity.getId()))
+                    .item(AlarmUtils.MESSAGE_NAME,
+                            MessageFormat.format("Start job failed, jobId={0}, message={1}",
+                                    jobEntity.getId(),
+                                    e.getMessage()))
+                    .build();
+            AlarmUtils.alarm(AlarmEventNames.TASK_START_FAILED, eventMessage);
+            // rollback load
+            configuration.getSupervisorAgentAllocator()
+                    .deallocateSupervisorEndpoint(jobContext.getJobIdentity().getId());
+            throw new TaskRuntimeException(e);
         }
     }
 

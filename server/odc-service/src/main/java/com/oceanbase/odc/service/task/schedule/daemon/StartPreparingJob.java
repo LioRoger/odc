@@ -74,7 +74,7 @@ public class StartPreparingJob implements Job {
         // scan preparing job
         TaskFrameworkService taskFrameworkService = configuration.getTaskFrameworkService();
         Page<JobEntity> jobs = taskFrameworkService.find(
-                Lists.newArrayList(JobStatus.PREPARING, JobStatus.RETRYING), 0,
+                Lists.newArrayList(JobStatus.PREPARING), 0,
                 taskFrameworkProperties.getSingleFetchPreparingJobRows());
 
         for (JobEntity a : jobs) {
@@ -98,7 +98,7 @@ public class StartPreparingJob implements Job {
     private void startJob(TaskFrameworkService taskFrameworkService, JobEntity jobEntity) {
         getConfiguration().getTransactionManager().doInTransactionWithoutResult(() -> {
             JobEntity lockedEntity = taskFrameworkService.findWithPessimisticLock(jobEntity.getId());
-            if (lockedEntity.getStatus() == JobStatus.PREPARING || lockedEntity.getStatus() == JobStatus.RETRYING) {
+            if (lockedEntity.getStatus() == JobStatus.PREPARING) {
 
                 // todo user id should be not null when submit job
                 if (jobEntity.getCreatorId() != null) {

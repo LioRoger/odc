@@ -18,9 +18,12 @@ package com.oceanbase.odc.service.task.util;
 import org.springframework.boot.autoconfigure.web.ServerProperties;
 
 import com.oceanbase.odc.common.util.SystemUtils;
+import com.oceanbase.odc.metadb.task.JobEntity;
 import com.oceanbase.odc.service.common.util.SpringContextUtil;
+import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
 import com.oceanbase.odc.service.task.enums.TaskRunMode;
+import com.oceanbase.odc.service.task.schedule.DefaultJobContextBuilder;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 
 import lombok.extern.slf4j.Slf4j;
@@ -47,5 +50,9 @@ public class TaskSupervisorUtil {
     public static boolean isTaskSupervisorEnabled(TaskFrameworkProperties taskFrameworkProperties) {
         return (taskFrameworkProperties.isEnableTaskSupervisorAgent()
                 && taskFrameworkProperties.getRunMode() == TaskRunMode.PROCESS);
+    }
+
+    public static JobContext buildJobContextFromJobEntity(JobEntity jobEntity) {
+        return new DefaultJobContextBuilder().build(jobEntity);
     }
 }

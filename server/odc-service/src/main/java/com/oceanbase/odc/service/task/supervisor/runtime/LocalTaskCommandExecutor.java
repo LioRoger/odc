@@ -54,8 +54,8 @@ public class LocalTaskCommandExecutor implements TaskCommandExecutor {
 
     protected boolean callTaskSupervisorFunc(GeneralTaskCommand generalTaskCommand) throws JobException {
         switch (generalTaskCommand.commandType()) {
-            case STOP:
-                return taskSupervisor.stopTask(generalTaskCommand.getExecutorEndpoint(),
+            case DESTROY:
+                return taskSupervisor.destroyTask(generalTaskCommand.getExecutorEndpoint(),
                         generalTaskCommand.getJobContext());
             case IS_TASK_ALIVE:
                 return taskSupervisor.isTaskAlive(

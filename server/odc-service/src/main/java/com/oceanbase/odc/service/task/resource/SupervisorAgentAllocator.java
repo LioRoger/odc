@@ -69,6 +69,10 @@ public class SupervisorAgentAllocator {
         updateUsageState(taskID, ResourceUsageState.FINISHED);
     }
 
+    public Optional<ResourceAllocateInfoEntity> queryResourceAllocateIntoEntity(Long taskID) {
+        return resourceAllocateInfoRepository.findByTaskIdNative(taskID);
+    }
+
     /**
      * create allocate info for job context
      * 

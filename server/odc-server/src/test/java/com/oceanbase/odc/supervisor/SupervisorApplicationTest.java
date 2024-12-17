@@ -111,7 +111,7 @@ public class SupervisorApplicationTest {
         Assert.assertTrue(localTaskSupervisorProxy.isSupervisorAlive(localSupervisorEndpoint));
         // stop task, sync
         TaskCallerResult taskCallerResult =
-                taskSupervisorJobCaller.stopTask(remoteSupervisorEndpoint, executorEndpoint, jobContext);
+                taskSupervisorJobCaller.destroyTask(remoteSupervisorEndpoint, executorEndpoint, jobContext);
         Assert.assertTrue(taskCallerResult.getSucceed());
         Assert.assertTrue(localTaskSupervisorProxy.isSupervisorAlive(remoteSupervisorEndpoint));
         // verify finish
@@ -151,11 +151,11 @@ public class SupervisorApplicationTest {
         waitPortAvailable(executorEndpoint);
         Assert.assertEquals(executorEndpoint.getSupervisorPort(), remoteSupervisorEndpoint.getPort());
         // shutdown remote task
-        localTaskSupervisorProxy.stopTask(localSupervisorEndpoint, executorEndpoint, jobContext);
+        localTaskSupervisorProxy.destroyTask(localSupervisorEndpoint, executorEndpoint, jobContext);
         Assert.assertFalse(localTaskSupervisorProxy.isTaskAlive(localSupervisorEndpoint, executorEndpoint, jobContext));
         // stop task
         TaskCallerResult taskCallerResult =
-                taskSupervisorJobCaller.stopTask(remoteSupervisorEndpoint, executorEndpoint, jobContext);
+                taskSupervisorJobCaller.destroyTask(remoteSupervisorEndpoint, executorEndpoint, jobContext);
         // still can stop
         Assert.assertTrue(taskCallerResult.getSucceed());
         // check task stopped

@@ -62,7 +62,7 @@ public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
     }
 
     @Override
-    public boolean stopTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
+    public boolean destroyTask(SupervisorEndpoint supervisorEndpoint, ExecutorEndpoint executorEndpoint,
             JobContext jobContext) throws JobException, IOException {
         if (null == executorEndpoint) {
             throw new JobException("empty executor endpoint to stop");
@@ -70,11 +70,11 @@ public class LocalTaskSupervisorProxy implements TaskSupervisorProxy {
         if (isLocalCommandCall(supervisorEndpoint)) {
             log.info("local call stop task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
                     supervisorEndpoint, executorEndpoint, jobContext);
-            return taskSupervisor.stopTask(executorEndpoint, jobContext);
+            return taskSupervisor.destroyTask(executorEndpoint, jobContext);
         } else {
             log.info("remote call stop task, supervisorEndpoint={}, executorEndpoint={}, jobContext={}",
                     supervisorEndpoint, executorEndpoint, jobContext);
-            return remoteTaskSupervisorProxy.stopTask(supervisorEndpoint, executorEndpoint, jobContext);
+            return remoteTaskSupervisorProxy.destroyTask(supervisorEndpoint, executorEndpoint, jobContext);
         }
     }
 
