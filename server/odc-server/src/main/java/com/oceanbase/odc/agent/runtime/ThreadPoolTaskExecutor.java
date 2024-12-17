@@ -87,8 +87,6 @@ class ThreadPoolTaskExecutor implements TaskExecutor {
                 taskContainer.onException(e);
             } finally {
                 taskContainer.closeTaskContainer();
-                // only hold one task, task done, agent quit
-                ExitHelper.notifyFinished();
             }
         });
         taskRuntimeInfo.setFuture(future);
