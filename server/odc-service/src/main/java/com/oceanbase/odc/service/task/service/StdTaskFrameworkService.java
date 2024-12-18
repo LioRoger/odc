@@ -563,7 +563,7 @@ public class StdTaskFrameworkService implements TaskFrameworkService {
         if (taskResult.getStatus() != null && taskResult.getStatus().isTerminated()) {
             jse.setFinishedTime(JobDateUtils.getCurrentDate());
         }
-        return jobRepository.updateReportResult(jse, currentJob.getId());
+        return jobRepository.updateReportResult(jse, currentJob.getId(), currentJob.getStatus());
     }
 
     public void saveOrUpdateLogMetadata(TaskResult taskResult, Long jobId, JobStatus currentStatus) {

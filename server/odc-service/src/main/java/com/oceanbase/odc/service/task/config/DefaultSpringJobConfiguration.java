@@ -17,7 +17,6 @@
 package com.oceanbase.odc.service.task.config;
 
 import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.context.ApplicationContext;

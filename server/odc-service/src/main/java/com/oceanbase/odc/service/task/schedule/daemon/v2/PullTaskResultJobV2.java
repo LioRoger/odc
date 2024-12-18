@@ -177,7 +177,8 @@ public class PullTaskResultJobV2 implements Job {
         // executor endpoint should be provided
         if (StringUtils.isBlank(jobEntity.getExecutorEndpoint())) {
             log.warn("executor endpoint should not be null", jobEntity.getId());
-            return TaskResultWrap.unreachedTaskResult(new JobException("executor endpoint should not be null, job id = " + jobEntity.getId()));
+            return TaskResultWrap.unreachedTaskResult(
+                    new JobException("executor endpoint should not be null, job id = " + jobEntity.getId()));
         } else {
             // try get result
             return taskExecutorClient.getResult(jobEntity.getExecutorEndpoint(), JobIdentity.of(jobEntity.getId()));
