@@ -34,8 +34,9 @@ import com.oceanbase.odc.service.task.TaskService;
 import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.dispatch.ImmediateJobDispatcher;
 import com.oceanbase.odc.service.task.jasypt.JasyptEncryptorConfigProperties;
-import com.oceanbase.odc.service.task.resource.ProcessTaskResourceManager;
+import com.oceanbase.odc.service.task.resource.LocalProcessResource;
 import com.oceanbase.odc.service.task.resource.SupervisorAgentAllocator;
+import com.oceanbase.odc.service.task.resource.TaskResourceManager;
 import com.oceanbase.odc.service.task.schedule.DefaultTaskFrameworkDisabledHandler;
 import com.oceanbase.odc.service.task.schedule.JobCredentialProvider;
 import com.oceanbase.odc.service.task.schedule.StartJobRateLimiter;
@@ -99,14 +100,23 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
         setHostProperties(ctx.getBean(HostProperties.class));
         setJobCredentialProvider(ctx.getBean(JobCredentialProvider.class));
         if (TaskSupervisorUtil.isTaskSupervisorEnabled(taskFrameworkProperties)) {
-            // init resource allocator and resource manager
-            ProcessTaskResourceManager processTaskResourceManager =
-                    new ProcessTaskResourceManager(ctx.getBean(SupervisorEndpointRepository.class), ctx.getBean(
-                            ResourceAllocateInfoRepository.class));
-            processTaskResourceManager.initTaskResourceManager();
-            setTaskResourceManager(processTaskResourceManager);
-            setSupervisorAgentAllocator(
-                    new SupervisorAgentAllocator(ctx.getBean(ResourceAllocateInfoRepository.class)));
+            initTaskSupervisor(taskFrameworkProperties);
+        }
+    }
+
+    protected void initTaskSupervisor(TaskFrameworkProperties taskFrameworkProperties) {
+        // init resource allocator and resource manager
+        TaskResourceManager taskResourceManager =
+                new TaskResourceManager(ctx.getBean(SupervisorEndpointRepository.class), ctx.getBean(
+                        ResourceAllocateInfoRepository.class));
+        setTaskResourceManager(taskResourceManager);
+        setSupervisorAgentAllocator(
+                new SupervisorAgentAllocator(ctx.getBean(ResourceAllocateInfoRepository.class)));
+        // prepare local process resource
+        if (taskFrameworkProperties.getRunMode().isProcess()) {
+            LocalProcessResource localProcessResource =
+                    new LocalProcessResource(ctx.getBean(SupervisorEndpointRepository.class));
+            localProcessResource.prepareLocalProcessResource();
         }
     }
 

@@ -8,9 +8,11 @@ CREATE TABLE `supervisor_endpoint` (
     `status` varchar(64)  NOT NULL COMMENT 'status of supervisor, contains PREPAREING,AVAILABLE,DESTROYED,UNAVAILABLE，ABANDON',
     `loads` int(11)  NOT NULL COMMENT 'load of supervisor',
     `resource_id` bigint(20) NOT NULL COMMENT 'resource id related to resource_resource table, -1 means not related',
+    `resource_region` varchar(128) NOT NULL COMMENT 'resource region to filter endpoint',
+    `resource_group` varchar(128) NOT NULL COMMENT 'resource group to filter endpoint',
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'create time',
     `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'update time',
     PRIMARY KEY (`id`),
     UNIQUE KEY host_and_port (`host`, `port`),
-    KEY `status_index` (`status`)
+    KEY `resource_location` (`status`, `resource_region`, `resource_group`)
 );

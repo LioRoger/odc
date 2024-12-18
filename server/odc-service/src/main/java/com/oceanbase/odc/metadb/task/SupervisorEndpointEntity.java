@@ -80,6 +80,18 @@ public class SupervisorEndpointEntity {
     private Long resourceID;
 
     /**
+     * resource region of resource
+     */
+    @Column(name = "resource_region", nullable = false)
+    private String resourceRegion;
+
+    /**
+     * resource region of resource
+     */
+    @Column(name = "resource_group", nullable = false)
+    private String resourceGroup;
+
+    /**
      * Record insertion time
      */
     @Generated(GenerationTime.ALWAYS)

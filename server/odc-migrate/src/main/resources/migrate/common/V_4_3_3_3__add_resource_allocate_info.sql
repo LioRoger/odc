@@ -7,6 +7,8 @@ CREATE TABLE `resource_allocate_info` (
     `resource_allocate_state` varchar(20) NOT NULL COMMENT 'resource allocate state, update by resource allocator, including PREPARING, AVAILABLE, FAILED, FINISHED',
     `resource_usage_state` varchar(20) NOT NULL COMMENT 'resource usage state update by resource user, including PREPARING, USING, FINISHED',
     `endpoint` varchar(512) DEFAULT NULL COMMENT 'supervisor endpoint, in format host:port',
+    `resource_region` varchar(128) NOT NULL COMMENT 'resource region to filter endpoint',
+    `resource_group` varchar(128) NOT NULL COMMENT 'resource group to filter endpoint',
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'create time',
     `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'update time',
     PRIMARY KEY (`id`),

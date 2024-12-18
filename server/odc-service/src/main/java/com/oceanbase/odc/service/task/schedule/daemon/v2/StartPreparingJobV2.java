@@ -31,10 +31,12 @@ import com.oceanbase.odc.common.trace.TraceContextHolder;
 import com.oceanbase.odc.core.alarm.AlarmEventNames;
 import com.oceanbase.odc.core.alarm.AlarmUtils;
 import com.oceanbase.odc.metadb.task.JobEntity;
+import com.oceanbase.odc.service.resource.ResourceLocation;
 import com.oceanbase.odc.service.task.caller.JobCallerBuilder;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.caller.JobEnvironmentFactory;
 import com.oceanbase.odc.service.task.caller.ProcessJobCaller;
+import com.oceanbase.odc.service.task.caller.ResourceIDUtil;
 import com.oceanbase.odc.service.task.config.JobConfiguration;
 import com.oceanbase.odc.service.task.config.JobConfigurationHolder;
 import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
@@ -92,7 +94,8 @@ public class StartPreparingJobV2 implements Job {
                     JobContext jobContext =
                             new DefaultJobContextBuilder().build(jobEntity);
                     Optional<SupervisorEndpoint> supervisorEndpoint = configuration.getSupervisorAgentAllocator()
-                            .tryAllocateSupervisorEndpoint(jobContext);
+                            .tryAllocateSupervisorEndpoint(jobContext,
+                                    retrieveJobRunningLocation(jobEntity, jobContext));
                     // no resource found current round, try allocate next
                     if (!supervisorEndpoint.isPresent()) {
                         continue;
@@ -103,7 +106,14 @@ public class StartPreparingJobV2 implements Job {
                 log.warn("Start job failed, jobId={}.", jobEntity.getId(), e);
             }
         }
+    }
 
+    protected ResourceLocation retrieveJobRunningLocation(JobEntity jobEntity, JobContext jobContext) {
+        if (jobEntity.getRunMode() == TaskRunMode.PROCESS) {
+            return ResourceIDUtil.PROCESS_RESOURCE_LOCATION;
+        } else {
+            return ResourceIDUtil.getResourceLocation(jobContext.getJobProperties());
+        }
     }
 
     private void startJob(SupervisorEndpoint supervisorEndpoint, JobConfiguration configuration, JobContext jobContext,

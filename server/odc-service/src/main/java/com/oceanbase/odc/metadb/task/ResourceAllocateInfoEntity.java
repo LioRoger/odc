@@ -71,6 +71,18 @@ public class ResourceAllocateInfoEntity {
     private String endpoint;
 
     /**
+     * resource region to find
+     */
+    @Column(name = "resource_region", nullable = false)
+    private String resourceRegion;
+
+    /**
+     * resource group to find
+     */
+    @Column(name = "resource_group", nullable = false)
+    private String resourceGroup;
+
+    /**
      * Record insertion time
      */
     @Generated(GenerationTime.ALWAYS)

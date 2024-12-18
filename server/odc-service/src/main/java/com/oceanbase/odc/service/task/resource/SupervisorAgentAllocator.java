@@ -20,6 +20,7 @@ import java.util.Optional;
 import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoRepository;
+import com.oceanbase.odc.service.resource.ResourceLocation;
 import com.oceanbase.odc.service.task.caller.JobContext;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 
@@ -37,9 +38,10 @@ public class SupervisorAgentAllocator {
         this.resourceAllocateInfoRepository = resourceAllocateInfoRepository;
     }
 
-    public Optional<SupervisorEndpoint> tryAllocateSupervisorEndpoint(JobContext jobContext) {
+    public Optional<SupervisorEndpoint> tryAllocateSupervisorEndpoint(JobContext jobContext,
+            ResourceLocation resourceLocation) {
         // register it to allocate info
-        ResourceAllocateInfoEntity entity = createAllocateInfo(jobContext);
+        ResourceAllocateInfoEntity entity = createAllocateInfo(jobContext, resourceLocation);
         ResourceAllocateState resourceAllocateState =
                 ResourceAllocateState.fromString(entity.getResourceAllocateState());
         switch (resourceAllocateState) {
@@ -78,7 +80,7 @@ public class SupervisorAgentAllocator {
      * 
      * @param jobContext
      */
-    protected ResourceAllocateInfoEntity createAllocateInfo(JobContext jobContext) {
+    protected ResourceAllocateInfoEntity createAllocateInfo(JobContext jobContext, ResourceLocation resourceLocation) {
         Optional<ResourceAllocateInfoEntity> resourceAllocateInfoEntity =
                 resourceAllocateInfoRepository.findByTaskIdNative(jobContext.getJobIdentity().getId());
         if (resourceAllocateInfoEntity.isPresent()) {
@@ -87,6 +89,8 @@ public class SupervisorAgentAllocator {
         ResourceAllocateInfoEntity created = new ResourceAllocateInfoEntity();
         created.setResourceAllocateState(ResourceAllocateState.PREPARING.name());
         created.setResourceUsageState(ResourceUsageState.PREPARING.name());
+        created.setResourceRegion(resourceLocation.getRegion());
+        created.setResourceGroup(resourceLocation.getGroup());
         created.setEndpoint(null);
         created.setTaskId(jobContext.getJobIdentity().getId());
         resourceAllocateInfoRepository.save(created);
