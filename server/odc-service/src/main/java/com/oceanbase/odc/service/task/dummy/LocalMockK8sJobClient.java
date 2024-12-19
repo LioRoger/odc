@@ -50,7 +50,7 @@ public class LocalMockK8sJobClient implements K8sJobClientSelector {
         @Override
         public K8sPodResource create(K8sResourceContext k8sResourceContext) throws JobException {
             JobContext jobContext = getJobContext(k8sResourceContext.getExtraData());
-            ProcessJobCaller jobCaller = (ProcessJobCaller) JobCallerBuilder.buildProcessCaller(jobContext,
+            ProcessJobCaller jobCaller = JobCallerBuilder.buildProcessCaller(jobContext,
                     JobCallerBuilder.buildK8sEnv(jobContext));
             DefaultExecutorIdentifier executorIdentifier = (DefaultExecutorIdentifier) jobCaller.doStart(jobContext);
             return new K8sPodResource(k8sResourceContext.getRegion(), k8sResourceContext.getGroup(),

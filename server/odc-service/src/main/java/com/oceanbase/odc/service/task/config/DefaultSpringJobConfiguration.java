@@ -34,7 +34,9 @@ import com.oceanbase.odc.service.task.TaskService;
 import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.dispatch.ImmediateJobDispatcher;
 import com.oceanbase.odc.service.task.jasypt.JasyptEncryptorConfigProperties;
+import com.oceanbase.odc.service.task.resource.K8STaskResourceManager;
 import com.oceanbase.odc.service.task.resource.LocalProcessResource;
+import com.oceanbase.odc.service.task.resource.ProcessTaskResourceManager;
 import com.oceanbase.odc.service.task.resource.SupervisorAgentAllocator;
 import com.oceanbase.odc.service.task.resource.TaskResourceManager;
 import com.oceanbase.odc.service.task.schedule.DefaultTaskFrameworkDisabledHandler;
@@ -106,18 +108,25 @@ public class DefaultSpringJobConfiguration extends DefaultJobConfiguration
 
     protected void initTaskSupervisor(TaskFrameworkProperties taskFrameworkProperties) {
         // init resource allocator and resource manager
-        TaskResourceManager taskResourceManager =
-                new TaskResourceManager(ctx.getBean(SupervisorEndpointRepository.class), ctx.getBean(
-                        ResourceAllocateInfoRepository.class));
-        setTaskResourceManager(taskResourceManager);
-        setSupervisorAgentAllocator(
-                new SupervisorAgentAllocator(ctx.getBean(ResourceAllocateInfoRepository.class)));
-        // prepare local process resource
+        TaskResourceManager taskResourceManager = null;
         if (taskFrameworkProperties.getRunMode().isProcess()) {
+            // prepare local process resource
             LocalProcessResource localProcessResource =
                     new LocalProcessResource(ctx.getBean(SupervisorEndpointRepository.class));
             localProcessResource.prepareLocalProcessResource();
+            taskResourceManager =
+                    new ProcessTaskResourceManager(ctx.getBean(SupervisorEndpointRepository.class), ctx.getBean(
+                            ResourceAllocateInfoRepository.class));
+        } else {
+            // k8s mode
+            taskResourceManager =
+                    new K8STaskResourceManager(ctx.getBean(SupervisorEndpointRepository.class), ctx.getBean(
+                            ResourceAllocateInfoRepository.class), ctx.getBean(ResourceManager.class));
         }
+
+        setTaskResourceManager(taskResourceManager);
+        setSupervisorAgentAllocator(
+                new SupervisorAgentAllocator(ctx.getBean(ResourceAllocateInfoRepository.class)));
     }
 
     @Override

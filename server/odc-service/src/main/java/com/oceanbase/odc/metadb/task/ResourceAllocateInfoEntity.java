@@ -83,6 +83,12 @@ public class ResourceAllocateInfoEntity {
     private String resourceGroup;
 
     /**
+     * resource group to find
+     */
+    @Column(name = "resource_create_info", nullable = false)
+    private String resourceCreateInfo;
+
+    /**
      * Record insertion time
      */
     @Generated(GenerationTime.ALWAYS)

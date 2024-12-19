@@ -24,9 +24,15 @@ import com.oceanbase.odc.common.util.StringUtils;
  * @date 2024/12/4 17:57
  */
 public enum ResourceAllocateState {
+    // init state
     PREPARING,
+    // resource allocate request has submitted, wait resource ready
+    CREATING_RESOURCE,
+    // resource is ready
     AVAILABLE,
+    // resource allocate failed
     FAILED,
+    // resource should be released
     FINISHED;
 
     public static ResourceAllocateState fromString(String allocateState) {

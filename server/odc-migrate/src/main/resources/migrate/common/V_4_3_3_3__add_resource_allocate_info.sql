@@ -9,6 +9,7 @@ CREATE TABLE `resource_allocate_info` (
     `endpoint` varchar(512) DEFAULT NULL COMMENT 'supervisor endpoint, in format host:port',
     `resource_region` varchar(128) NOT NULL COMMENT 'resource region to filter endpoint',
     `resource_group` varchar(128) NOT NULL COMMENT 'resource group to filter endpoint',
+    `resource_create_info` varchar(2048) COMMENT 'resource create info if no resource available',
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'create time',
     `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'update time',
     PRIMARY KEY (`id`),
