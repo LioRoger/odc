@@ -27,6 +27,8 @@ import javax.persistence.Table;
 import org.hibernate.annotations.Generated;
 import org.hibernate.annotations.GenerationTime;
 
+import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
+
 import lombok.Data;
 
 /**
@@ -106,4 +108,8 @@ public class SupervisorEndpointEntity {
     @Column(name = "update_time", insertable = false, updatable = false,
             columnDefinition = "datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
     private Date updateTime;
+
+    public SupervisorEndpoint getEndpoint() {
+        return new SupervisorEndpoint(host, port);
+    }
 }

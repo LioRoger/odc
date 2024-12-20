@@ -37,17 +37,18 @@ public interface ResourceAllocateInfoRepository extends JpaRepository<ResourceAl
 
     @Transactional
     @Query(value = "update resource_allocate_info set "
-            + " resource_allocate_state='AVAILABLE', endpoint = :endpointToSet"
+            + " resource_allocate_state='AVAILABLE', endpoint = :endpointToSet, resource_id = :resourceIdToSet"
             + " where task_id=:idToFind", nativeQuery = true)
     @Modifying
-    int updateEndpointByTaskId(@Param("endpointToSet") String endpoint, @Param("idToFind") Long id);
+    int updateEndpointByTaskId(@Param("endpointToSet") String endpoint, @Param("resourceIdToSet") Long resourceId,
+            @Param("idToFind") Long id);
 
     @Transactional
     @Query(value = "update resource_allocate_info set "
-            + " resource_allocate_state='CREATING_RESOURCE', resource_create_info = :resourceCreateInfo"
+            + " resource_allocate_state='CREATING_RESOURCE', endpoint = :endpointToSet, resource_id = :resourceIdToSet"
             + " where task_id=:idToFind", nativeQuery = true)
     @Modifying
-    int updateResourceCreateInfoByTaskId(@Param("resourceCreateInfo") String resourceCreateInfo,
+    int updateResourceIdByTaskId(@Param("endpointToSet") String endpoint, @Param("resourceIdToSet") Long resourceId,
             @Param("idToFind") Long id);
 
     @Transactional

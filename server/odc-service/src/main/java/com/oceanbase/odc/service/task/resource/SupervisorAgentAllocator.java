@@ -38,10 +38,10 @@ public class SupervisorAgentAllocator {
         this.resourceAllocateInfoRepository = resourceAllocateInfoRepository;
     }
 
-    public Optional<SupervisorEndpoint> tryAllocateSupervisorEndpoint(JobContext jobContext,
+    public Optional<SupervisorEndpoint> tryAllocateSupervisorEndpoint(String applierName, JobContext jobContext,
             ResourceLocation resourceLocation) {
         // register it to allocate info
-        ResourceAllocateInfoEntity entity = createAllocateInfo(jobContext, resourceLocation);
+        ResourceAllocateInfoEntity entity = createAllocateInfo(applierName, jobContext, resourceLocation);
         ResourceAllocateState resourceAllocateState =
                 ResourceAllocateState.fromString(entity.getResourceAllocateState());
         switch (resourceAllocateState) {
@@ -61,6 +61,7 @@ public class SupervisorAgentAllocator {
                 updateUsageState(jobContext.getJobIdentity().getId(), ResourceUsageState.USING);
                 return Optional.of(ret);
             case PREPARING:
+            case CREATING_RESOURCE:
                 return Optional.empty();
             default:
                 throw new RuntimeException("allocate resource meet unexpected state =" + resourceAllocateState);
@@ -80,7 +81,8 @@ public class SupervisorAgentAllocator {
      * 
      * @param jobContext
      */
-    protected ResourceAllocateInfoEntity createAllocateInfo(JobContext jobContext, ResourceLocation resourceLocation) {
+    protected ResourceAllocateInfoEntity createAllocateInfo(String applierName, JobContext jobContext,
+            ResourceLocation resourceLocation) {
         Optional<ResourceAllocateInfoEntity> resourceAllocateInfoEntity =
                 resourceAllocateInfoRepository.findByTaskIdNative(jobContext.getJobIdentity().getId());
         if (resourceAllocateInfoEntity.isPresent()) {
@@ -93,6 +95,7 @@ public class SupervisorAgentAllocator {
         created.setResourceGroup(resourceLocation.getGroup());
         created.setEndpoint(null);
         created.setTaskId(jobContext.getJobIdentity().getId());
+        created.setResourceApplierName(applierName);
         resourceAllocateInfoRepository.save(created);
         return created;
     }

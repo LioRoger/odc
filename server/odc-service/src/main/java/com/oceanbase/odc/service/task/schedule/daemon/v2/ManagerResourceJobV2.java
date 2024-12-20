@@ -35,7 +35,7 @@ import com.oceanbase.odc.service.task.config.TaskFrameworkProperties;
 import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.enums.TaskRunMode;
 import com.oceanbase.odc.service.task.exception.TaskRuntimeException;
-import com.oceanbase.odc.service.task.resource.TaskResourceManager;
+import com.oceanbase.odc.service.task.resource.manager.TaskResourceManager;
 import com.oceanbase.odc.service.task.service.TaskFrameworkService;
 
 import lombok.extern.slf4j.Slf4j;

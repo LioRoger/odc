@@ -13,27 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.resource;
+package com.oceanbase.odc.service.task.resource.manager.strategy.process;
 
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
-import com.oceanbase.odc.metadb.task.ResourceAllocateInfoRepository;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
-import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
-import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
+import com.oceanbase.odc.service.task.resource.manager.ResourceManageStrategy;
 
 import lombok.extern.slf4j.Slf4j;
 
 /**
+ * default process resource manage strategy
+ * 
  * @author longpeng.zlp
  * @date 2024/12/2 14:43
  */
 @Slf4j
-public class ProcessTaskResourceManager extends TaskResourceManager {
+public class ProcessResourceManageStrategy implements ResourceManageStrategy {
 
-    public ProcessTaskResourceManager(SupervisorEndpointRepository supervisorEndpointRepository,
-            ResourceAllocateInfoRepository resourceAllocateInfoRepository) {
-        super(supervisorEndpointRepository, resourceAllocateInfoRepository);
-    }
+    public ProcessResourceManageStrategy() {}
 
     /**
      * handle no resource available for allocate request
@@ -41,7 +38,8 @@ public class ProcessTaskResourceManager extends TaskResourceManager {
      * @param resourceAllocateInfoEntity
      * @return info to stored
      */
-    protected String handleNoResourceAvailable(ResourceAllocateInfoEntity resourceAllocateInfoEntity) {
+    public SupervisorEndpointEntity handleNoResourceAvailable(ResourceAllocateInfoEntity resourceAllocateInfoEntity)
+            throws Exception {
         return null;
     }
 
@@ -51,18 +49,18 @@ public class ProcessTaskResourceManager extends TaskResourceManager {
      * @param resourceAllocateInfoEntity
      * @return resource endpoint if ready, else null
      */
-    protected SupervisorEndpoint detectIfResourceIsReady(ResourceAllocateInfoEntity resourceAllocateInfoEntity) {
+    public SupervisorEndpointEntity detectIfResourceIsReady(ResourceAllocateInfoEntity resourceAllocateInfoEntity) {
         return null;
     }
 
     @Override
-    protected boolean isEndpointHaveEnoughResource(SupervisorEndpointEntity supervisorEndpoint,
+    public boolean isEndpointHaveEnoughResource(SupervisorEndpointEntity supervisorEndpoint,
             ResourceAllocateInfoEntity entity) {
         return true;
     }
 
     @Override
-    protected void manageResource() {
+    public void manageResource() {
         // do nothing
     }
 }

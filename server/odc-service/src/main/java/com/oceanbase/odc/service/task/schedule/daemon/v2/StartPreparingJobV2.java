@@ -94,7 +94,7 @@ public class StartPreparingJobV2 implements Job {
                     JobContext jobContext =
                             new DefaultJobContextBuilder().build(jobEntity);
                     Optional<SupervisorEndpoint> supervisorEndpoint = configuration.getSupervisorAgentAllocator()
-                            .tryAllocateSupervisorEndpoint(jobContext,
+                            .tryAllocateSupervisorEndpoint(jobEntity.getRunMode().name(), jobContext,
                                     retrieveJobRunningLocation(jobEntity, jobContext));
                     // no resource found current round, try allocate next
                     if (!supervisorEndpoint.isPresent()) {

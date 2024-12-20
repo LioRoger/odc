@@ -15,6 +15,8 @@
  */
 package com.oceanbase.odc.service.task.supervisor;
 
+import com.oceanbase.odc.common.util.StringUtils;
+
 /**
  * @author longpeng.zlp
  * @date 2024/11/29 16:18
@@ -29,5 +31,9 @@ public enum SupervisorEndpointState {
     // endpoint not reachable
     UNAVAILABLE,
     // endpoint is abandoned
-    ABANDON
+    ABANDON;
+
+    public static SupervisorEndpointState fromString(String name) {
+        return SupervisorEndpointState.valueOf(StringUtils.upperCase(name));
+    }
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.resource;
+package com.oceanbase.odc.service.task.resource.manager;
 
 import java.util.List;
 import java.util.Optional;
@@ -24,6 +24,7 @@ import org.springframework.data.jpa.domain.Specification;
 import com.oceanbase.odc.common.jpa.SpecificationUtil;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
+import com.oceanbase.odc.service.task.resource.K8sPodResource;
 import com.oceanbase.odc.service.task.supervisor.SupervisorEndpointState;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 
@@ -41,21 +42,43 @@ public class SupervisorEndpointRepositoryWrap {
         this.repository = repository;
     }
 
+    public SupervisorEndpointEntity save(K8sPodResource k8sPodResource, long resourceID) {
+        SupervisorEndpointEntity endpoint = new SupervisorEndpointEntity();
+        endpoint.setPort(Integer.valueOf(k8sPodResource.getServicePort()));
+        endpoint.setHost(k8sPodResource.getPodIpAddress());
+        endpoint.setStatus(SupervisorEndpointState.PREPARING.name());
+        endpoint.setResourceGroup(k8sPodResource.getGroup());
+        endpoint.setResourceRegion(k8sPodResource.getRegion());
+        endpoint.setResourceID(resourceID);
+        endpoint.setLoads(0);
+        return repository.save(endpoint);
+    }
 
-    public void releaseLoad(SupervisorEndpoint supervisorEndpoint) {
+    public SupervisorEndpointEntity getSupervisorEndpointState(SupervisorEndpoint endpoint, long resourceID) {
+        Optional<SupervisorEndpointEntity> supervisorEndpointEntity =
+                repository.findByHostPortAndResourceId(endpoint.getHost(), endpoint.getPort(), resourceID);
+        if (!supervisorEndpointEntity.isPresent()) {
+            throw new RuntimeException("resource not found. endpoint=" + resourceID + ", resourceID =" + resourceID);
+        } else {
+            return supervisorEndpointEntity.get();
+        }
+    }
+
+    public void releaseLoad(SupervisorEndpoint supervisorEndpoint, long resourceID) {
         Optional<SupervisorEndpointEntity> optionalSupervisorEndpointEntity = repository
-                .findByHostAndPort(supervisorEndpoint.getHost(), Integer.valueOf(supervisorEndpoint.getPort()));
+                .findByHostPortAndResourceId(supervisorEndpoint.getHost(),
+                        Integer.valueOf(supervisorEndpoint.getPort()), resourceID);
         if (!optionalSupervisorEndpointEntity.isPresent()) {
             log.warn("update supervisor endpoint failed, endpoint={}", supervisorEndpoint);
             return;
         }
         SupervisorEndpointEntity supervisorEndpointEntity = optionalSupervisorEndpointEntity.get();
         operateLoad(supervisorEndpointEntity.getHost(),
-                supervisorEndpointEntity.getPort(), -1);
+                supervisorEndpointEntity.getPort(), resourceID, -1);
     }
 
-    public void operateLoad(String host, int port, int delta) {
-        repository.addLoadByHostAndPort(host, port, delta);
+    public void operateLoad(String host, int port, long resourceID, int delta) {
+        repository.addLoadByHostPortAndResourceId(host, port, resourceID, delta);
     }
 
     public List<SupervisorEndpointEntity> collectAvailableSupervisorEndpoint(String region, String group) {

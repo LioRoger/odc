@@ -74,9 +74,10 @@ public class LocalProcessResource {
     private void tryRegisterTaskSupervisorAgent(SupervisorEndpoint localEndpoint) {
         log.info("start with supervisor agent mode, try register agent");
         Optional<SupervisorEndpointEntity> registered = supervisorEndpointRepository
-                .findByHostAndPort(localEndpoint.getHost(), localEndpoint.getPort());
+                .findByHostPortAndResourceId(localEndpoint.getHost(), localEndpoint.getPort(), -1L);
         if (registered.isPresent()) {
-            supervisorEndpointRepository.updateStatusByHostAndPort(localEndpoint.getHost(), localEndpoint.getPort(),
+            supervisorEndpointRepository.updateStatusByHostPortAndResourceId(localEndpoint.getHost(),
+                    localEndpoint.getPort(), -1L,
                     SupervisorEndpointState.AVAILABLE.name());
         } else {
             SupervisorEndpointEntity created = new SupervisorEndpointEntity();

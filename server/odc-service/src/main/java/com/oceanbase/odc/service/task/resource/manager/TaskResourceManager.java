@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.resource;
+package com.oceanbase.odc.service.task.resource.manager;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -23,11 +23,12 @@ import java.util.stream.Collectors;
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.oceanbase.odc.common.json.JsonUtils;
-import com.oceanbase.odc.common.util.StringUtils;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoRepository;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
+import com.oceanbase.odc.service.task.resource.ResourceAllocateState;
+import com.oceanbase.odc.service.task.resource.ResourceUsageState;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommandSender;
 import com.oceanbase.odc.service.task.supervisor.proxy.RemoteTaskSupervisorProxy;
@@ -39,16 +40,20 @@ import lombok.extern.slf4j.Slf4j;
  * @date 2024/12/2 14:43
  */
 @Slf4j
-public abstract class TaskResourceManager {
+public class TaskResourceManager {
     protected final SupervisorEndpointRepositoryWrap supervisorEndpointRepositoryWrap;
     protected final ResourceAllocateInfoRepositoryWrap resourceAllocateInfoRepositoryWrap;
     protected final RemoteTaskSupervisorProxy remoteTaskSupervisorProxy;
+    protected final ResourceManageStrategy resourceManageStrategy;
+
 
     public TaskResourceManager(SupervisorEndpointRepository supervisorEndpointRepository,
-            ResourceAllocateInfoRepository resourceAllocateInfoRepository) {
+            ResourceAllocateInfoRepository resourceAllocateInfoRepository,
+            ResourceManageStrategy resourceManageStrategy) {
         this.supervisorEndpointRepositoryWrap = new SupervisorEndpointRepositoryWrap(supervisorEndpointRepository);
         this.resourceAllocateInfoRepositoryWrap =
                 new ResourceAllocateInfoRepositoryWrap(resourceAllocateInfoRepository);
+        this.resourceManageStrategy = resourceManageStrategy;
         this.remoteTaskSupervisorProxy = new RemoteTaskSupervisorProxy(new TaskCommandSender());
     }
 
@@ -62,60 +67,74 @@ public abstract class TaskResourceManager {
         // 2. deallocate supervisor agent
         deAllocateSupervisorAgent();
         // 3. check if there are resource need be released or what ever
-        manageResource();
+        resourceManageStrategy.manageResource();
     }
 
     protected void allocateSupervisorAgent() {
         List<ResourceAllocateInfoEntity> resourceToAllocate = resourceAllocateInfoRepositoryWrap.collectAllocateInfo();
         for (ResourceAllocateInfoEntity resourceAllocateInfo : resourceToAllocate) {
-            if (!isAllocateInfoValid(resourceAllocateInfo)) {
-                continue;
-            }
-            ResourceAllocateState resourceAllocateState =
-                    ResourceAllocateState.fromString(resourceAllocateInfo.getResourceAllocateState());
-            if (resourceAllocateState == ResourceAllocateState.PREPARING) {
-                handleAllocateResourceInfoInPreparing(resourceAllocateInfo);
-            } else if (resourceAllocateState == ResourceAllocateState.CREATING_RESOURCE) {
-                handleAllocateResourceInfoInCreatingResource(resourceAllocateInfo);
-            } else {
-                throw new RuntimeException(
-                        "invalid state for allocate supervisor agent, current is " + resourceAllocateInfo);
+            try {
+                if (!isAllocateInfoValid(resourceAllocateInfo)) {
+                    continue;
+                }
+                ResourceAllocateState resourceAllocateState =
+                        ResourceAllocateState.fromString(resourceAllocateInfo.getResourceAllocateState());
+                if (resourceAllocateState == ResourceAllocateState.PREPARING) {
+                    handleAllocateResourceInfoInPreparing(resourceAllocateInfo);
+                } else if (resourceAllocateState == ResourceAllocateState.CREATING_RESOURCE) {
+                    handleAllocateResourceInfoInCreatingResource(resourceAllocateInfo);
+                } else {
+                    log.warn("invalid state for allocate supervisor agent, current is " + resourceAllocateInfo);
+                }
+            } catch (Throwable e) {
+                log.warn("allocate supervisor agent for allocate info = {} failed", resourceAllocateInfo, e);
+                resourceAllocateInfoRepositoryWrap.failedAllocateForId(resourceAllocateInfo.getTaskId());
             }
         }
     }
 
     // handle prepare allocate resource state
-    protected void handleAllocateResourceInfoInPreparing(ResourceAllocateInfoEntity allocateInfoEntity) {
-        SupervisorEndpoint supervisorEndpoint = chooseSupervisorEndpoint(allocateInfoEntity);
+    protected void handleAllocateResourceInfoInPreparing(ResourceAllocateInfoEntity allocateInfoEntity)
+            throws Exception {
+        SupervisorEndpointEntity supervisorEndpoint = chooseSupervisorEndpoint(allocateInfoEntity);
         if (null != supervisorEndpoint) {
             // allocate success
             log.info("allocate supervisor endpoint = {} for job id = {}", supervisorEndpoint,
                     allocateInfoEntity.getTaskId());
-            resourceAllocateInfoRepositoryWrap.allocateForJob(supervisorEndpoint, allocateInfoEntity.getTaskId());
+            resourceAllocateInfoRepositoryWrap.allocateForJob(supervisorEndpoint.getEndpoint(),
+                    supervisorEndpoint.getResourceID(), allocateInfoEntity.getTaskId());
         } else {
             // try allocate new resource
-            log.info("not endpoint available for job id = {}, try allocate new resource",
-                    allocateInfoEntity.getTaskId());
-            String allocateInfo = handleNoResourceAvailable(allocateInfoEntity);
-            // no info provided, not change current state
-            if (StringUtils.isNotBlank(allocateInfo)) {
-                resourceAllocateInfoRepositoryWrap.prepareResourceForJob(allocateInfo, allocateInfoEntity.getTaskId());
+            SupervisorEndpointEntity endpoint = resourceManageStrategy.handleNoResourceAvailable(allocateInfoEntity);
+            // info provided, not change current state
+            if (null != endpoint) {
+                resourceAllocateInfoRepositoryWrap.prepareResourceForJob(endpoint.getEndpoint(),
+                        endpoint.getResourceID(), allocateInfoEntity.getTaskId());
+                log.info("endpoint prepare for job id = {}, wait  resource = {} ready",
+                        allocateInfoEntity.getTaskId(), endpoint);
+            } else {
+                log.debug("not endpoint available for job id = {}, ignore current schedule",
+                        allocateInfoEntity.getTaskId());
             }
         }
     }
 
     // handle creating resource allocate resource state
-    protected void handleAllocateResourceInfoInCreatingResource(ResourceAllocateInfoEntity allocateInfoEntity) {
-        SupervisorEndpoint supervisorEndpoint = detectIfResourceIsReady(allocateInfoEntity);
+    protected void handleAllocateResourceInfoInCreatingResource(ResourceAllocateInfoEntity allocateInfoEntity)
+            throws Exception {
+        SupervisorEndpointEntity supervisorEndpoint =
+                resourceManageStrategy.detectIfResourceIsReady(allocateInfoEntity);
         if (null != supervisorEndpoint) {
             // allocate success
-            log.info("resource ready with info = {}, allocate supervisor endpoint = {} for job id = {}",
-                    allocateInfoEntity.getResourceCreateInfo(), supervisorEndpoint, allocateInfoEntity.getTaskId());
-            resourceAllocateInfoRepositoryWrap.allocateForJob(supervisorEndpoint, allocateInfoEntity.getTaskId());
+            log.info("resource ready with resource id = {}, allocate supervisor endpoint = {} for job id = {}",
+                    allocateInfoEntity.getResourceId(), supervisorEndpoint, allocateInfoEntity.getTaskId());
+            resourceAllocateInfoRepositoryWrap.allocateForJob(supervisorEndpoint.getEndpoint(),
+                    supervisorEndpoint.getResourceID(), allocateInfoEntity.getTaskId());
         } else {
             // wait resource ready
-            log.info("resource not ready with info = {} for job id = {}, wait resource ready",
-                    allocateInfoEntity.getResourceCreateInfo(), allocateInfoEntity.getTaskId());
+            log.debug("resource not ready with resource id = {}, endpoint = {} for job id = {}, wait resource ready",
+                    allocateInfoEntity.getResourceId(), allocateInfoEntity.getEndpoint(),
+                    allocateInfoEntity.getTaskId());
         }
     }
 
@@ -139,16 +158,26 @@ public abstract class TaskResourceManager {
         List<ResourceAllocateInfoEntity> resourceToDeallocate =
                 resourceAllocateInfoRepositoryWrap.collectDeAllocateInfo();
         for (ResourceAllocateInfoEntity deAllocateInfoEntity : resourceToDeallocate) {
-            SupervisorEndpoint supervisorEndpoint =
-                    JsonUtils.fromJson(deAllocateInfoEntity.getEndpoint(), SupervisorEndpoint.class);
-            // allocate success
-            if (null != supervisorEndpoint) {
-                supervisorEndpointRepositoryWrap.releaseLoad(supervisorEndpoint);
-            } else {
-                log.warn("supervisorEndpoint not parsed, taskID = {}, originValue = {}",
-                        deAllocateInfoEntity.getTaskId(), deAllocateInfoEntity.getEndpoint());
+            try {
+                SupervisorEndpoint supervisorEndpoint =
+                        JsonUtils.fromJson(deAllocateInfoEntity.getEndpoint(), SupervisorEndpoint.class);
+                if (null == deAllocateInfoEntity.getResourceId() || null == supervisorEndpoint) {
+                    log.warn("invalid state, resource id or endpoint should not be null, entity = {}",
+                            deAllocateInfoEntity);
+                    continue;
+                } else {
+                    // allocate success
+                    log.info("release resource for taskID = {}, endpoint = {}, resourceId = {}",
+                            deAllocateInfoEntity.getTaskId(), deAllocateInfoEntity.getEndpoint(),
+                            deAllocateInfoEntity.getResourceId());
+                    supervisorEndpointRepositoryWrap.releaseLoad(supervisorEndpoint,
+                            deAllocateInfoEntity.getResourceId());
+                }
+                resourceAllocateInfoRepositoryWrap.finishedAllocateForId(deAllocateInfoEntity.getTaskId());
+            } catch (Throwable e) {
+                // wait do next round
+                log.warn("deallocate resource for allocate info ={}", deAllocateInfoEntity, e);
             }
-            resourceAllocateInfoRepositoryWrap.finishedAllocateForId(deAllocateInfoEntity.getTaskId());
         }
     }
 
@@ -157,7 +186,7 @@ public abstract class TaskResourceManager {
      * 
      * @return
      */
-    protected SupervisorEndpoint chooseSupervisorEndpoint(ResourceAllocateInfoEntity entity) {
+    protected SupervisorEndpointEntity chooseSupervisorEndpoint(ResourceAllocateInfoEntity entity) {
         List<SupervisorEndpointEntity> supervisorEndpointEntities = supervisorEndpointRepositoryWrap
                 .collectAvailableSupervisorEndpoint(entity.getResourceRegion(), entity.getResourceGroup());
         // no available found
@@ -171,15 +200,15 @@ public abstract class TaskResourceManager {
                 .sorted((s1, s2) -> Integer.compare(s1.getLoads(), s2.getLoads())).collect(
                         Collectors.toList());
         for (SupervisorEndpointEntity tmp : supervisorEndpointEntities) {
-            if (!isEndpointHaveEnoughResource(tmp, entity)) {
+            if (!resourceManageStrategy.isEndpointHaveEnoughResource(tmp, entity)) {
                 continue;
             }
             SupervisorEndpoint ret = new SupervisorEndpoint(tmp.getHost(), tmp.getPort());
             // TODO(longxuan): handle unreached supervisor
             if (remoteTaskSupervisorProxy.isSupervisorAlive(ret)) {
                 // each task means one load
-                supervisorEndpointRepositoryWrap.operateLoad(tmp.getHost(), tmp.getPort(), 1);
-                return ret;
+                supervisorEndpointRepositoryWrap.operateLoad(tmp.getHost(), tmp.getPort(), tmp.getResourceID(), 1);
+                return tmp;
             }
         }
         return null;
@@ -191,37 +220,5 @@ public abstract class TaskResourceManager {
         // TODO(lx): config it
         return (between.toMillis() / 1000 > 60);
     }
-
-
-    /**
-     * handle no resource available for allocate request
-     * 
-     * @param resourceAllocateInfoEntity
-     * @return info to stored
-     */
-    protected abstract String handleNoResourceAvailable(ResourceAllocateInfoEntity resourceAllocateInfoEntity);
-
-    /**
-     * detect if resource is ready for new resource
-     * 
-     * @param resourceAllocateInfoEntity
-     * @return resource endpoint if ready, else null
-     */
-    protected abstract SupervisorEndpoint detectIfResourceIsReady(
-            ResourceAllocateInfoEntity resourceAllocateInfoEntity);
-
-    /**
-     * if supervisorEndpoint have enough resource for allocate request
-     * 
-     * @param supervisorEndpoint
-     * @return
-     */
-    protected abstract boolean isEndpointHaveEnoughResource(SupervisorEndpointEntity supervisorEndpoint,
-            ResourceAllocateInfoEntity entity);
-
-    /**
-     * manager resource, do real resource related operation
-     */
-    protected abstract void manageResource();
 
 }

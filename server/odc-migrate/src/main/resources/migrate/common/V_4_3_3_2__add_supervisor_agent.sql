@@ -13,6 +13,6 @@ CREATE TABLE `supervisor_endpoint` (
     `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'create time',
     `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'update time',
     PRIMARY KEY (`id`),
-    UNIQUE KEY host_and_port (`host`, `port`),
+    UNIQUE KEY host_and_port (`host`, `port`, `resource_id`),
     KEY `resource_location` (`status`, `resource_region`, `resource_group`)
 );

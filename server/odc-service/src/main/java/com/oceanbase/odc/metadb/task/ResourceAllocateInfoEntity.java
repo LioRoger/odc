@@ -67,8 +67,14 @@ public class ResourceAllocateInfoEntity {
     /**
      * supervisor endpoint, in format host:port
      */
-    @Column(name = "endpoint", nullable = false)
+    @Column(name = "endpoint")
     private String endpoint;
+
+    /**
+     * resource id associate to supervisor endpoint resource id
+     */
+    @Column(name = "resource_id")
+    private Long resourceId;
 
     /**
      * resource region to find
@@ -83,10 +89,10 @@ public class ResourceAllocateInfoEntity {
     private String resourceGroup;
 
     /**
-     * resource group to find
+     * resource type
      */
-    @Column(name = "resource_create_info", nullable = false)
-    private String resourceCreateInfo;
+    @Column(name = "resource_applier_name", nullable = false)
+    private String resourceApplierName;
 
     /**
      * Record insertion time

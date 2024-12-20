@@ -38,33 +38,36 @@ public interface SupervisorEndpointRepository extends JpaRepository<SupervisorEn
     @Transactional
     @Query(value = "update supervisor_endpoint set "
             + " status=:statusToSet, loads = :loadToSet"
-            + " where host=:hostToFind and port=:portToFind", nativeQuery = true)
+            + " where host=:hostToFind and port=:portToFind and resource_id = :resourceIdToFind", nativeQuery = true)
     @Modifying
-    int updateStatusAndLoadByHostAndPort(@Param("hostToFind") String host, @Param("portToFind") Integer port,
+    int updateStatusLoadByHostPortAndResourceId(@Param("hostToFind") String host, @Param("portToFind") Integer port,
+            @Param("resourceIdToFind") Long resourceID,
             @Param("loadToSet") Integer load,
             @Param("statusToSet") String status);
 
     @Transactional
     @Query(value = "update supervisor_endpoint set "
             + " status=:statusToSet"
-            + " where host=:hostToFind and port=:portToFind", nativeQuery = true)
+            + " where host=:hostToFind and port=:portToFind and resource_id = :resourceIdToFind", nativeQuery = true)
     @Modifying
-    int updateStatusByHostAndPort(@Param("hostToFind") String host, @Param("portToFind") Integer port,
+    int updateStatusByHostPortAndResourceId(@Param("hostToFind") String host, @Param("portToFind") Integer port,
+            @Param("resourceIdToFind") Long resourceID,
             @Param("statusToSet") String status);
 
     @Transactional
     @Query(value = "update supervisor_endpoint set "
             + "loads = loads + :loadToAdd"
-            + " where host=:hostToFind and port=:portToFind", nativeQuery = true)
+            + " where host=:hostToFind and port=:portToFind and resource_id = :resourceIdToFind", nativeQuery = true)
     @Modifying
-    int addLoadByHostAndPort(@Param("hostToFind") String host, @Param("portToFind") Integer port,
+    int addLoadByHostPortAndResourceId(@Param("hostToFind") String host, @Param("portToFind") Integer port,
+            @Param("resourceIdToFind") Long resourceID,
             @Param("loadToAdd") Integer loadToAdd);
 
     @Query(value = "SELECT * FROM supervisor_endpoint WHERE id = ?1", nativeQuery = true)
     Optional<SupervisorEndpointEntity> findByIdNative(Long id);
 
-    @Query(value = "SELECT * FROM supervisor_endpoint WHERE host = :hostToFind and port = :portToFind",
+    @Query(value = "SELECT * FROM supervisor_endpoint WHERE host = :hostToFind and port = :portToFind and resource_id = :resourceIdToFind",
             nativeQuery = true)
-    Optional<SupervisorEndpointEntity> findByHostAndPort(@Param("hostToFind") String host,
-            @Param("portToFind") Integer port);
+    Optional<SupervisorEndpointEntity> findByHostPortAndResourceId(@Param("hostToFind") String host,
+            @Param("portToFind") Integer port, @Param("resourceIdToFind") Long resourceID);
 }

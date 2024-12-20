@@ -15,18 +15,11 @@
  */
 package com.oceanbase.odc.supervisor;
 
-import java.util.HashMap;
-import java.util.Map;
-
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
 
-import com.oceanbase.odc.common.JobContextResolver;
-import com.oceanbase.odc.common.util.StringUtils;
+import com.oceanbase.odc.common.util.SystemUtils;
 import com.oceanbase.odc.server.module.Modules;
-import com.oceanbase.odc.service.task.caller.JobContext;
-import com.oceanbase.odc.service.task.caller.ProcessConfig;
 import com.oceanbase.odc.service.task.constants.JobEnvKeyConstants;
-import com.oceanbase.odc.service.task.supervisor.protocol.StartTaskCommand;
 import com.oceanbase.odc.supervisor.runtime.SupervisorApplication;
 
 import lombok.extern.slf4j.Slf4j;
@@ -45,12 +38,10 @@ public class SupervisorAgent {
         try {
             Modules.load();
             // config it
-            supervisorApplication = new SupervisorApplication(0);
+            supervisorApplication = new SupervisorApplication(getListenPort());
             supervisorApplication.start(args);
             // send command context, then stop to compatible with previous logic
-            JobContext jobContext = new JobContextResolver().resolveJobContext(args);
-            supervisorApplication.getTaskSupervisorServer().getTaskCommandExecutor()
-                    .onCommand(StartTaskCommand.create(jobContext, buildFromJobContext(jobContext)));
+            supervisorApplication.waitStop();
             // supervisorApplication.waitStop();
         } catch (Throwable e) {
             log.error("Supervisor agent stopped", e);
@@ -62,21 +53,11 @@ public class SupervisorAgent {
         log.info("Supervisor agent stopped.");
     }
 
-    private static ProcessConfig buildFromJobContext(JobContext jobContext) {
-        ProcessConfig processConfig = new ProcessConfig();
-        processConfig.setJvmXmsMB(1024);
-        processConfig.setJvmXmxMB(2048);
-        Map<String, String> env = new HashMap<>();
-        for (Map.Entry<String, String> evn : System.getenv().entrySet()) {
-            // ignore job context file path
-            if (StringUtils.equalsIgnoreCase(evn.getKey(), JobEnvKeyConstants.ODC_JOB_CONTEXT_FILE_PATH)) {
-                continue;
-            }
-            env.put(evn.getKey(), evn.getValue());
+    public static int getListenPort() {
+        String supervisorListenPort = SystemUtils.getEnvOrProperty(JobEnvKeyConstants.ODC_SUPERVISOR_LISTEN_PORT);
+        if (null == supervisorListenPort) {
+            throw new RuntimeException("supervisor endpoint must be given");
         }
-        processConfig.setEnvironments(env);
-        log.info("process config with values = {}", processConfig.getEnvironments());
-        return processConfig;
+        return Integer.valueOf(supervisorListenPort);
     }
-
 }

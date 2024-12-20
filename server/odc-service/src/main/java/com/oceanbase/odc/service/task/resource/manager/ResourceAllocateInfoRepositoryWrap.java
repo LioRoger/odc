@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.oceanbase.odc.service.task.resource;
+package com.oceanbase.odc.service.task.resource.manager;
 
 import java.util.Arrays;
 import java.util.List;
@@ -25,6 +25,8 @@ import com.oceanbase.odc.common.jpa.SpecificationUtil;
 import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoRepository;
+import com.oceanbase.odc.service.task.resource.ResourceAllocateState;
+import com.oceanbase.odc.service.task.resource.ResourceUsageState;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 
 /**
@@ -46,12 +48,19 @@ public class ResourceAllocateInfoRepositoryWrap {
      * @param supervisorEndpoint
      * @param taskID
      */
-    protected void allocateForJob(SupervisorEndpoint supervisorEndpoint, Long taskID) {
-        repository.updateEndpointByTaskId(JsonUtils.toJson(supervisorEndpoint), taskID);
+    protected void allocateForJob(SupervisorEndpoint supervisorEndpoint, Long resourceId, Long taskID) {
+        repository.updateEndpointByTaskId(JsonUtils.toJson(supervisorEndpoint), resourceId, taskID);
     }
 
-    protected void prepareResourceForJob(String createInfo, Long taskID) {
-        repository.updateResourceCreateInfoByTaskId(createInfo, taskID);
+    /**
+     * pre allocate unavailable resource
+     * 
+     * @param supervisorEndpoint
+     * @param resourceId
+     * @param taskID
+     */
+    protected void prepareResourceForJob(SupervisorEndpoint supervisorEndpoint, Long resourceId, Long taskID) {
+        repository.updateResourceIdByTaskId(JsonUtils.toJson(supervisorEndpoint), resourceId, taskID);
     }
 
     /**
