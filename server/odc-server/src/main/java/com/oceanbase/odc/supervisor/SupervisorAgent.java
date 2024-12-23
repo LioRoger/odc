@@ -23,6 +23,8 @@ import com.oceanbase.odc.service.task.constants.JobEnvKeyConstants;
 import com.oceanbase.odc.supervisor.runtime.SupervisorApplication;
 
 import lombok.extern.slf4j.Slf4j;
+import sun.misc.Signal;
+import sun.misc.SignalHandler;
 
 /**
  * @author longpeng.zlp
@@ -40,9 +42,11 @@ public class SupervisorAgent {
             // config it
             supervisorApplication = new SupervisorApplication(getListenPort());
             supervisorApplication.start(args);
-            // send command context, then stop to compatible with previous logic
+            // register signal handler
+            Signal.handle(new Signal("INT"), new DefaultSignalHandler(supervisorApplication));
+            Signal.handle(new Signal("TERM"), new DefaultSignalHandler(supervisorApplication));
+            // wait stop
             supervisorApplication.waitStop();
-            // supervisorApplication.waitStop();
         } catch (Throwable e) {
             log.error("Supervisor agent stopped", e);
         } finally {
@@ -59,5 +63,23 @@ public class SupervisorAgent {
             throw new RuntimeException("supervisor endpoint must be given");
         }
         return Integer.valueOf(supervisorListenPort);
+    }
+
+    private static final class DefaultSignalHandler implements SignalHandler {
+        private final SupervisorApplication supervisorApplication;
+
+        public DefaultSignalHandler(SupervisorApplication supervisorApplication) {
+            this.supervisorApplication = supervisorApplication;
+        }
+
+        @Override
+        public void handle(Signal signal) {
+            if (null != supervisorApplication) {
+                log.info("receive signal [{}]-[{}], try stop supervisor", signal.getName(), signal.getNumber());
+                supervisorApplication.stop();
+            } else {
+                log.info("receive signal [{}]-[{}], supervisor not init yet", signal.getName(), signal.getNumber());
+            }
+        }
     }
 }

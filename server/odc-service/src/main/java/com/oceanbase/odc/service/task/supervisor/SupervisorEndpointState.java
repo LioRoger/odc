@@ -26,8 +26,6 @@ public enum SupervisorEndpointState {
     PREPARING,
     // endpoint is available
     AVAILABLE,
-    // endpoint has been destroyed
-    DESTROYED,
     // endpoint not reachable
     UNAVAILABLE,
     // endpoint is abandoned

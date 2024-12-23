@@ -42,6 +42,18 @@ public class SupervisorEndpointRepositoryWrap {
         this.repository = repository;
     }
 
+    public void abandonSupervisorEndpoint(SupervisorEndpointEntity endpoint) {
+        this.repository.updateStatusById(endpoint.getId(), SupervisorEndpointState.ABANDON.name());
+    }
+
+    public void onlineSupervisorEndpoint(SupervisorEndpointEntity endpoint) {
+        this.repository.updateStatusById(endpoint.getId(), SupervisorEndpointState.AVAILABLE.name());
+    }
+
+    public void offSupervisorEndpoint(SupervisorEndpointEntity endpoint) {
+        this.repository.updateStatusById(endpoint.getId(), SupervisorEndpointState.UNAVAILABLE.name());
+    }
+
     public SupervisorEndpointEntity save(K8sPodResource k8sPodResource, long resourceID) {
         SupervisorEndpointEntity endpoint = new SupervisorEndpointEntity();
         endpoint.setPort(Integer.valueOf(k8sPodResource.getServicePort()));
@@ -86,6 +98,19 @@ public class SupervisorEndpointRepositoryWrap {
                 SpecificationUtil.columnEqual("status", SupervisorEndpointState.AVAILABLE.name()));
         condition = condition.and(SpecificationUtil.columnEqual("resourceRegion", region))
                 .and(SpecificationUtil.columnEqual("resourceGroup", group));
+        return repository.findAll(condition, PageRequest.of(0, 100)).getContent();
+    }
+
+    public List<SupervisorEndpointEntity> collectIdleAvailableSupervisorEndpoint() {
+        Specification<SupervisorEndpointEntity> condition = Specification.where(
+                SpecificationUtil.columnEqual("status", SupervisorEndpointState.AVAILABLE.name()));
+        condition = condition.and(SpecificationUtil.columnGreater("loads", 0L));
+        return repository.findAll(condition, PageRequest.of(0, 100)).getContent();
+    }
+
+    public List<SupervisorEndpointEntity> collectPreparingSupervisorEndpoint() {
+        Specification<SupervisorEndpointEntity> condition = Specification.where(
+                SpecificationUtil.columnEqual("status", SupervisorEndpointState.PREPARING.name()));
         return repository.findAll(condition, PageRequest.of(0, 100)).getContent();
     }
 }
