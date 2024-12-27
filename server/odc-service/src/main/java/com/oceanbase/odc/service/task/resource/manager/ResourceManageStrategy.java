@@ -57,12 +57,14 @@ public interface ResourceManageStrategy {
 
     /**
      * release resource for given endpoint
+     * 
      * @param endpoint
      */
     void releaseResourceById(SupervisorEndpointEntity endpoint);
 
     /**
      * pick up resource expect to released
+     * 
      * @param entity
      * @return
      */

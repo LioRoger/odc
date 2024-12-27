@@ -20,7 +20,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import com.oceanbase.odc.common.util.StringUtils;
 import com.oceanbase.odc.common.util.SystemUtils;
 import com.oceanbase.odc.service.resource.ResourceState;
 import com.oceanbase.odc.service.task.caller.DefaultExecutorIdentifier;
@@ -60,34 +59,41 @@ public class LocalMockK8sJobClient implements K8sJobClientSelector {
 
     private static final class LocalProcessClient implements K8sJobClient {
         private final TaskSupervisor taskSupervisor;
+
         public LocalProcessClient() {
-            taskSupervisor = new TaskSupervisor(new SupervisorEndpoint(SystemUtils.getLocalIpAddress(), 8989), "com.oceanbase.odc.supervisor.SupervisorAgent");
+            taskSupervisor = new TaskSupervisor(new SupervisorEndpoint(SystemUtils.getLocalIpAddress(), 8989),
+                    "com.oceanbase.odc.supervisor.SupervisorAgent");
             taskSupervisor.setJobInfoSerializer(null);
         }
+
         @Override
         public K8sPodResource create(K8sResourceContext k8sResourceContext) throws JobException {
             JobContext jobContext = getJobContext(k8sResourceContext.getExtraData());
             if (null != jobContext) {
                 // normal process
                 ProcessJobCaller jobCaller = JobCallerBuilder.buildProcessCaller(jobContext,
-                    JobCallerBuilder.buildK8sEnv(jobContext));
+                        JobCallerBuilder.buildK8sEnv(jobContext));
                 DefaultExecutorIdentifier executorIdentifier = (DefaultExecutorIdentifier) jobCaller.doStart(
-                    jobContext);
+                        jobContext);
                 return new K8sPodResource(k8sResourceContext.getRegion(), k8sResourceContext.getGroup(),
-                    k8sResourceContext.type(),
-                    executorIdentifier.getNamespace(),
-                    executorIdentifier.getExecutorName(), ResourceState.AVAILABLE,
-                    SystemUtils.getLocalIpAddress(), String.valueOf(executorIdentifier.getPort()), new Date(System.currentTimeMillis()));
+                        k8sResourceContext.type(),
+                        executorIdentifier.getNamespace(),
+                        executorIdentifier.getExecutorName(), ResourceState.AVAILABLE,
+                        SystemUtils.getLocalIpAddress(), String.valueOf(executorIdentifier.getPort()),
+                        new Date(System.currentTimeMillis()));
             } else {
                 // supervisor
                 PodConfig podConfig = k8sResourceContext.getPodConfig();
                 ExecutorEndpoint executorEndpoint = startTask(podConfig.getEnvironments());
-                ExecutorIdentifier executorIdentifier = ExecutorIdentifierParser.parser(executorEndpoint.getIdentifier());
+                ExecutorIdentifier executorIdentifier =
+                        ExecutorIdentifierParser.parser(executorEndpoint.getIdentifier());
                 return new K8sPodResource(k8sResourceContext.getRegion(), k8sResourceContext.getGroup(),
-                    k8sResourceContext.type(),
-                    executorIdentifier.getNamespace(),
-                    executorEndpoint.getIdentifier() + "supervisor", ResourceState.AVAILABLE,
-                    SystemUtils.getLocalIpAddress(), podConfig.getEnvironments().get(JobEnvKeyConstants.ODC_SUPERVISOR_LISTEN_PORT), new Date(System.currentTimeMillis()));
+                        k8sResourceContext.type(),
+                        executorIdentifier.getNamespace(),
+                        executorEndpoint.getIdentifier() + "supervisor", ResourceState.AVAILABLE,
+                        SystemUtils.getLocalIpAddress(),
+                        podConfig.getEnvironments().get(JobEnvKeyConstants.ODC_SUPERVISOR_LISTEN_PORT),
+                        new Date(System.currentTimeMillis()));
             }
         }
 
@@ -100,9 +106,9 @@ public class LocalMockK8sJobClient implements K8sJobClientSelector {
         @Override
         public Optional<K8sPodResource> get(String namespace, String arn) throws JobException {
             K8sPodResource ret = new K8sPodResource(ResourceIDUtil.DEFAULT_REGION_PROP_NAME,
-                ResourceIDUtil.DEFAULT_GROUP_PROP_NAME, DefaultResourceOperatorBuilder.CLOUD_K8S_POD_TYPE,
-                namespace, arn, ResourceState.AVAILABLE,
-                SystemUtils.getLocalIpAddress(), "8989", new Date(System.currentTimeMillis()));
+                    ResourceIDUtil.DEFAULT_GROUP_PROP_NAME, DefaultResourceOperatorBuilder.CLOUD_K8S_POD_TYPE,
+                    namespace, arn, ResourceState.AVAILABLE,
+                    SystemUtils.getLocalIpAddress(), "8989", new Date(System.currentTimeMillis()));
             return Optional.of(ret);
         }
 

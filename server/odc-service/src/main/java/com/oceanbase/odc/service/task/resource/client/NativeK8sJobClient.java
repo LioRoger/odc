@@ -16,7 +16,6 @@
 package com.oceanbase.odc.service.task.resource.client;
 
 import static com.oceanbase.odc.service.task.constants.JobConstants.FIELD_SELECTOR_METADATA_NAME;
-import static com.oceanbase.odc.service.task.constants.JobConstants.RESTART_POLICY_NEVER;
 import static com.oceanbase.odc.service.task.constants.JobConstants.TEMPLATE_API_VERSION;
 import static com.oceanbase.odc.service.task.constants.JobConstants.TEMPLATE_KIND_POD;
 

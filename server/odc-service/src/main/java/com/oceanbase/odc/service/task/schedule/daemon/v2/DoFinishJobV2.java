@@ -79,7 +79,8 @@ public class DoFinishJobV2 implements Job {
                 taskFrameworkProperties.getSingleFetchDestroyExecutorJobRows());
         jobs.forEach(a -> {
             try {
-                configuration.getTransactionManager().doInTransactionWithoutResult(() -> destroyExecutor(taskFrameworkService, a));
+                configuration.getTransactionManager()
+                        .doInTransactionWithoutResult(() -> destroyExecutor(taskFrameworkService, a));
             } catch (Throwable e) {
                 log.warn("Try to destroy failed, jobId={}.", a.getId(), e);
             }
@@ -143,10 +144,10 @@ public class DoFinishJobV2 implements Job {
         if (null == supervisorEndpoint) {
             if (ResourceAllocateState.FAILED.equal(entity.getResourceAllocateState())) {
                 log.info("failed supervisor state for job id = {}, endpoint str = {}", jobEntity.getId(),
-                    entity.getEndpoint());
+                        entity.getEndpoint());
             } else {
                 log.info("invalid supervisor state for job id = {}, endpoint str = {}", jobEntity.getId(),
-                    entity.getEndpoint());
+                        entity.getEndpoint());
             }
             return;
         }

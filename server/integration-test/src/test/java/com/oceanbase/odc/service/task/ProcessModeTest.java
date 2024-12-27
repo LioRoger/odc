@@ -86,7 +86,8 @@ public class ProcessModeTest extends BaseJobTest {
         processConfig.setEnvironments(getEnvironments());
         processConfig.setJvmXmxMB(512);
         processConfig.setJvmXmsMB(256);
-        String executorName = JobUtils.generateExecutorName(JobIdentity.of(exceptedTaskId), new Date(System.currentTimeMillis()));
+        String executorName =
+                JobUtils.generateExecutorName(JobIdentity.of(exceptedTaskId), new Date(System.currentTimeMillis()));
         ProcessBuilder pb = new ExecutorProcessBuilderFactory()
                 .getProcessBuilder(processConfig, exceptedTaskId, executorName);
         Process process = null;

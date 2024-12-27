@@ -18,21 +18,10 @@ package com.oceanbase.odc.service.task.resource.manager;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
-import org.apache.commons.collections4.CollectionUtils;
-
-import com.oceanbase.odc.common.json.JsonUtils;
-import com.oceanbase.odc.metadb.resource.ResourceEntity;
-import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoRepository;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
-import com.oceanbase.odc.service.resource.ResourceID;
-import com.oceanbase.odc.service.resource.ResourceManager;
-import com.oceanbase.odc.service.task.resource.ResourceAllocateState;
-import com.oceanbase.odc.service.task.resource.ResourceUsageState;
 import com.oceanbase.odc.service.task.service.TransactionManager;
 import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.supervisor.protocol.TaskCommandSender;
@@ -61,8 +50,10 @@ public class TaskResourceManager {
         this.resourceAllocateInfoRepositoryWrap =
                 new ResourceAllocateInfoRepositoryWrap(resourceAllocateInfoRepository);
         this.resourceManageStrategy = resourceManageStrategy;
-        this.resourceAllocator = new ResourceAllocator(supervisorEndpointRepositoryWrap, resourceAllocateInfoRepositoryWrap, remoteTaskSupervisorProxy, resourceManageStrategy);
-        this.resourceDeAllocator = new ResourceDeAllocator(supervisorEndpointRepositoryWrap, resourceAllocateInfoRepositoryWrap, remoteTaskSupervisorProxy, resourceManageStrategy);
+        this.resourceAllocator = new ResourceAllocator(supervisorEndpointRepositoryWrap,
+                resourceAllocateInfoRepositoryWrap, remoteTaskSupervisorProxy, resourceManageStrategy);
+        this.resourceDeAllocator = new ResourceDeAllocator(supervisorEndpointRepositoryWrap,
+                resourceAllocateInfoRepositoryWrap, remoteTaskSupervisorProxy, resourceManageStrategy);
     }
 
     /**
@@ -82,11 +73,12 @@ public class TaskResourceManager {
 
     /**
      * detect if resource has ready
+     * 
      * @param transactionManager
      */
     protected void detectPreparingResource(TransactionManager transactionManager) {
         List<SupervisorEndpointEntity> endpointEntityList =
-            supervisorEndpointRepositoryWrap.collectPreparingSupervisorEndpoint();
+                supervisorEndpointRepositoryWrap.collectPreparingSupervisorEndpoint();
         for (SupervisorEndpointEntity endpoint : endpointEntityList) {
             try {
                 transactionManager.doInTransactionWithoutResult(() -> detectIfResourceIsReady(endpoint));
@@ -122,11 +114,12 @@ public class TaskResourceManager {
 
     protected void scanEndpointsToRelease(TransactionManager transactionManager) {
         List<SupervisorEndpointEntity> endpointEntityList =
-            supervisorEndpointRepositoryWrap.collectIdleAvailableSupervisorEndpoint();
+                supervisorEndpointRepositoryWrap.collectIdleAvailableSupervisorEndpoint();
         List<SupervisorEndpointEntity> toReleased = resourceManageStrategy.pickReleasedEndpoint(endpointEntityList);
         for (SupervisorEndpointEntity endpoint : toReleased) {
             try {
-                transactionManager.doInTransactionWithoutResult(() -> resourceManageStrategy.releaseResourceById(endpoint));
+                transactionManager
+                        .doInTransactionWithoutResult(() -> resourceManageStrategy.releaseResourceById(endpoint));
             } catch (Throwable e) {
                 log.warn("release endpoint = {} failed", endpoint, e);
             }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 OceanBase.
+ * Copyright (c) 2023 OceanBase.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.oceanbase.odc.service.task.resource.manager;
 
 import java.util.List;
@@ -28,19 +27,20 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * agent and resource de allocator
+ * 
  * @author longpeng.zlp
  * @date 2024/12/27 16:08
  */
 @Slf4j
 public class ResourceDeAllocator {
-    protected final SupervisorEndpointRepositoryWrap   supervisorEndpointRepositoryWrap;
-    protected final     ResourceAllocateInfoRepositoryWrap resourceAllocateInfoRepositoryWrap;
-    protected final RemoteTaskSupervisorProxy          remoteTaskSupervisorProxy;
-    protected final  ResourceManageStrategy             resourceManageStrategy;
+    protected final SupervisorEndpointRepositoryWrap supervisorEndpointRepositoryWrap;
+    protected final ResourceAllocateInfoRepositoryWrap resourceAllocateInfoRepositoryWrap;
+    protected final RemoteTaskSupervisorProxy remoteTaskSupervisorProxy;
+    protected final ResourceManageStrategy resourceManageStrategy;
 
     public ResourceDeAllocator(SupervisorEndpointRepositoryWrap supervisorEndpointRepositoryWrap,
-        ResourceAllocateInfoRepositoryWrap resourceAllocateInfoRepositoryWrap,
-        RemoteTaskSupervisorProxy remoteTaskSupervisorProxy, ResourceManageStrategy resourceManageStrategy) {
+            ResourceAllocateInfoRepositoryWrap resourceAllocateInfoRepositoryWrap,
+            RemoteTaskSupervisorProxy remoteTaskSupervisorProxy, ResourceManageStrategy resourceManageStrategy) {
         this.supervisorEndpointRepositoryWrap = supervisorEndpointRepositoryWrap;
         this.resourceAllocateInfoRepositoryWrap = resourceAllocateInfoRepositoryWrap;
         this.remoteTaskSupervisorProxy = remoteTaskSupervisorProxy;
@@ -50,7 +50,7 @@ public class ResourceDeAllocator {
     // deallocate entry
     public void deAllocateSupervisorAgent(TransactionManager transactionManager) {
         List<ResourceAllocateInfoEntity> resourceToDeallocate =
-            resourceAllocateInfoRepositoryWrap.collectDeAllocateInfo();
+                resourceAllocateInfoRepositoryWrap.collectDeAllocateInfo();
         for (ResourceAllocateInfoEntity deAllocateInfoEntity : resourceToDeallocate) {
             transactionManager.doInTransactionWithoutResult(() -> deallocate(deAllocateInfoEntity));
         }
@@ -59,18 +59,18 @@ public class ResourceDeAllocator {
     protected void deallocate(ResourceAllocateInfoEntity deAllocateInfoEntity) {
         try {
             SupervisorEndpoint supervisorEndpoint =
-                JsonUtils.fromJson(deAllocateInfoEntity.getEndpoint(), SupervisorEndpoint.class);
+                    JsonUtils.fromJson(deAllocateInfoEntity.getEndpoint(), SupervisorEndpoint.class);
             if (null == deAllocateInfoEntity.getResourceId() || null == supervisorEndpoint) {
                 log.warn("invalid state, resource id or endpoint should not be null, entity = {}",
-                    deAllocateInfoEntity);
+                        deAllocateInfoEntity);
                 return;
             } else {
                 // de allocate success
                 log.info("release resource for taskID = {}, endpoint = {}, resourceId = {}",
-                    deAllocateInfoEntity.getTaskId(), deAllocateInfoEntity.getEndpoint(),
-                    deAllocateInfoEntity.getResourceId());
+                        deAllocateInfoEntity.getTaskId(), deAllocateInfoEntity.getEndpoint(),
+                        deAllocateInfoEntity.getResourceId());
                 supervisorEndpointRepositoryWrap.releaseLoad(supervisorEndpoint,
-                    deAllocateInfoEntity.getResourceId());
+                        deAllocateInfoEntity.getResourceId());
             }
             resourceAllocateInfoRepositoryWrap.finishedAllocateForId(deAllocateInfoEntity.getTaskId());
         } catch (Throwable e) {

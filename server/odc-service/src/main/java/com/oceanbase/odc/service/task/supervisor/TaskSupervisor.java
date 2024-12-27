@@ -21,7 +21,6 @@ import java.nio.charset.Charset;
 import java.util.Date;
 import java.util.Map;
 import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
@@ -76,7 +75,8 @@ public class TaskSupervisor {
      * @return
      */
     public ExecutorEndpoint startTask(JobContext context, ProcessConfig processConfig) throws JobException {
-        String executorName = JobUtils.generateExecutorName(context.getJobIdentity(), new Date(System.currentTimeMillis()));
+        String executorName =
+                JobUtils.generateExecutorName(context.getJobIdentity(), new Date(System.currentTimeMillis()));
         int port = tryGenerateListenPortToEnv(processConfig);
         // save job context to file
         if (null != jobInfoSerializer) {
