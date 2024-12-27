@@ -28,7 +28,11 @@ public enum ResourceUsageState {
     USING,
     FINISHED;
 
-    public static ResourceUsageState fromString(String allocateState) {
-        return ResourceUsageState.valueOf(StringUtils.upperCase(allocateState));
+    public static ResourceUsageState fromString(String usageState) {
+        return ResourceUsageState.valueOf(StringUtils.upperCase(StringUtils.trim(usageState)));
+    }
+
+    public boolean equal(String usageState) {
+        return StringUtils.equalsIgnoreCase(name(), StringUtils.trim(usageState));
     }
 }

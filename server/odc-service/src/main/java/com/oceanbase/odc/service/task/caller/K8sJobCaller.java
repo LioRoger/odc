@@ -16,6 +16,7 @@
 
 package com.oceanbase.odc.service.task.caller;
 
+import java.util.Date;
 import java.util.Optional;
 
 import com.oceanbase.odc.service.resource.ResourceID;
@@ -45,10 +46,12 @@ public class K8sJobCaller extends BaseJobCaller {
      */
     private final PodConfig defaultPodConfig;
     private final ResourceManager resourceManager;
+    private final Date jobCreateTime;
 
-    public K8sJobCaller(PodConfig podConfig, ResourceManager resourceManager) {
+    public K8sJobCaller(PodConfig podConfig, ResourceManager resourceManager, Date jobCreateTime) {
         this.defaultPodConfig = podConfig;
         this.resourceManager = resourceManager;
+        this.jobCreateTime = jobCreateTime;
     }
 
     @Override
@@ -68,7 +71,7 @@ public class K8sJobCaller extends BaseJobCaller {
     }
 
     protected K8sResourceContext buildK8sResourceContext(JobContext context, ResourceLocation resourceLocation) {
-        String jobName = JobUtils.generateExecutorName(context.getJobIdentity());
+        String jobName = JobUtils.generateExecutorName(context.getJobIdentity(), jobCreateTime);
         return new K8sResourceContext(defaultPodConfig, jobName, resourceLocation.getRegion(),
                 resourceLocation.getGroup(),
                 DefaultResourceOperatorBuilder.CLOUD_K8S_POD_TYPE, context);

@@ -18,7 +18,10 @@ package com.oceanbase.odc.service.task.supervisor;
 import java.io.File;
 import java.lang.ProcessBuilder.Redirect;
 import java.nio.charset.Charset;
+import java.util.Date;
 import java.util.Map;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.hadoop.classification.InterfaceStability.Evolving;
@@ -39,6 +42,7 @@ import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 import com.oceanbase.odc.service.task.util.JobUtils;
 
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -56,6 +60,9 @@ public class TaskSupervisor {
 
     private final String mainClassName;
 
+    @Setter
+    private BiConsumer<JobContext, ProcessConfig> jobInfoSerializer = TaskSupervisor::writeJobContextToFile;
+
     public TaskSupervisor(SupervisorEndpoint supervisorEndpoint, String mainClassName) {
         this.supervisorEndpoint = supervisorEndpoint;
         this.mainClassName = mainClassName;
@@ -69,10 +76,12 @@ public class TaskSupervisor {
      * @return
      */
     public ExecutorEndpoint startTask(JobContext context, ProcessConfig processConfig) throws JobException {
-        String executorName = JobUtils.generateExecutorName(context.getJobIdentity());
+        String executorName = JobUtils.generateExecutorName(context.getJobIdentity(), new Date(System.currentTimeMillis()));
         int port = tryGenerateListenPortToEnv(processConfig);
         // save job context to file
-        writeJobContextToFile(context, processConfig);
+        if (null != jobInfoSerializer) {
+            jobInfoSerializer.accept(context, processConfig);
+        }
         ProcessBuilder pb = new ExecutorProcessBuilderFactory().getProcessBuilder(
                 processConfig, context.getJobIdentity().getId(), executorName, mainClassName);
         log.info("start task with processConfig={}, env={}", JobUtils.toJson(processConfig),
@@ -116,7 +125,7 @@ public class TaskSupervisor {
      * @param context
      * @param processConfig
      */
-    protected void writeJobContextToFile(JobContext context, ProcessConfig processConfig) {
+    protected static void writeJobContextToFile(JobContext context, ProcessConfig processConfig) {
         Map<String, String> environments = processConfig.getEnvironments();
         /**
          * write JobContext to file in case of exceeding the environments size limit; set the file path in

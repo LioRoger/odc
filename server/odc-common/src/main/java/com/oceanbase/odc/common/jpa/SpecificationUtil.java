@@ -73,12 +73,12 @@ public class SpecificationUtil {
         };
     }
 
-    public static <T, K extends Comparable<K>> Specification<T> columnGreater(@NonNull String columnName, K number) {
+    public static <T, K extends Comparable<K>> Specification<T> columnLessThanOrEqualTo(@NonNull String columnName, K number) {
         return (root, query, builder) -> {
             if (Objects.isNull(number)) {
                 return builder.conjunction();
             }
-            return builder.greaterThan(root.get(columnName), number);
+            return builder.lessThanOrEqualTo(root.get(columnName), number);
         };
     }
 

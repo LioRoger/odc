@@ -100,10 +100,12 @@ public class StartPreparingJobV2 implements Job {
                     if (!supervisorEndpoint.isPresent()) {
                         continue;
                     }
-                    startJob(supervisorEndpoint.get(), configuration, jobContext, jobEntity);
+                    configuration.getTransactionManager().doInTransactionWithoutResult(() -> startJob(supervisorEndpoint.get(), configuration, jobContext, jobEntity));
                 }
             } catch (Throwable e) {
-                log.warn("Start job failed, jobId={}.", jobEntity.getId(), e);
+                log.warn("Start job failed, jobId={}, terminate job.", jobEntity.getId(), e);
+                JobUtils.updateStatusAndCheck(jobEntity.getId(), jobEntity.getStatus(), JobStatus.FAILED,
+                    taskFrameworkService);
             }
         }
     }

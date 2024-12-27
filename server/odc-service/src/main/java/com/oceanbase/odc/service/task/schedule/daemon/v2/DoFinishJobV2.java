@@ -44,6 +44,7 @@ import com.oceanbase.odc.service.task.constants.JobConstants;
 import com.oceanbase.odc.service.task.enums.TaskRunMode;
 import com.oceanbase.odc.service.task.exception.JobException;
 import com.oceanbase.odc.service.task.exception.TaskRuntimeException;
+import com.oceanbase.odc.service.task.resource.ResourceAllocateState;
 import com.oceanbase.odc.service.task.schedule.DefaultJobContextBuilder;
 import com.oceanbase.odc.service.task.service.TaskFrameworkService;
 import com.oceanbase.odc.service.task.supervisor.TaskCallerResult;
@@ -78,7 +79,7 @@ public class DoFinishJobV2 implements Job {
                 taskFrameworkProperties.getSingleFetchDestroyExecutorJobRows());
         jobs.forEach(a -> {
             try {
-                destroyExecutor(taskFrameworkService, a);
+                configuration.getTransactionManager().doInTransactionWithoutResult(() -> destroyExecutor(taskFrameworkService, a));
             } catch (Throwable e) {
                 log.warn("Try to destroy failed, jobId={}.", a.getId(), e);
             }
@@ -140,8 +141,14 @@ public class DoFinishJobV2 implements Job {
     private void destroyTaskByAgent(ResourceAllocateInfoEntity entity, JobEntity jobEntity) throws JobException {
         SupervisorEndpoint supervisorEndpoint = JsonUtils.fromJson(entity.getEndpoint(), SupervisorEndpoint.class);
         if (null == supervisorEndpoint) {
-            throw new JobException("invalid supervisor state for job id = {}, endpoint str = {}", jobEntity.getId(),
+            if (ResourceAllocateState.FAILED.equal(entity.getResourceAllocateState())) {
+                log.info("failed supervisor state for job id = {}, endpoint str = {}", jobEntity.getId(),
                     entity.getEndpoint());
+            } else {
+                log.info("invalid supervisor state for job id = {}, endpoint str = {}", jobEntity.getId(),
+                    entity.getEndpoint());
+            }
+            return;
         }
         String executorIdentifierStr = jobEntity.getExecutorIdentifier();
         if (StringUtils.isBlank(executorIdentifierStr)) {

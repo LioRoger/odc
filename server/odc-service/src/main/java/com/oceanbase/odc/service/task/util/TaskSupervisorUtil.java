@@ -42,14 +42,13 @@ public class TaskSupervisorUtil {
     }
 
     /**
-     * current task supervisor agent only support process mode
+     * current task supervisor agent
      * 
      * @param taskFrameworkProperties
      * @return
      */
     public static boolean isTaskSupervisorEnabled(TaskFrameworkProperties taskFrameworkProperties) {
-        return (taskFrameworkProperties.isEnableTaskSupervisorAgent()
-                && taskFrameworkProperties.getRunMode() == TaskRunMode.PROCESS);
+        return (taskFrameworkProperties.isEnableTaskSupervisorAgent());
     }
 
     public static JobContext buildJobContextFromJobEntity(JobEntity jobEntity) {

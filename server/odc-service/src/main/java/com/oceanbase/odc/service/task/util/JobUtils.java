@@ -18,8 +18,10 @@ package com.oceanbase.odc.service.task.util;
 
 import java.io.File;
 import java.lang.reflect.Type;
+import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -56,10 +58,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class JobUtils {
 
-    private static final DateTimeFormatter DTF = DateTimeFormatter.ofPattern("yyyyMMddHHmmssSSS");
-
-    public static String generateExecutorName(JobIdentity ji) {
-        return JobConstants.TEMPLATE_JOB_NAME_PREFIX + ji.getId() + "-" + LocalDateTime.now().format(DTF);
+    public static String generateExecutorName(JobIdentity ji, Date jobCreateTime) {
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmssSSS");
+        String dateString = formatter.format(jobCreateTime);
+        return JobConstants.TEMPLATE_JOB_NAME_PREFIX + ji.getId() + "-" + dateString;
     }
 
     public static String generateExecutorSelectorOnProcess(String executorName) {

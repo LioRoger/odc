@@ -32,7 +32,7 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class ResourceIDUtil {
-    public static final String DEFAULT_REGION_PROP_NAME = "region";
+    public static final String DEFAULT_REGION_PROP_NAME = "regionName";
     public static final String DEFAULT_GROUP_PROP_NAME = "cloudProvider";
     public static final String PROCESS_REGION_NAME = "local";
     public static final String PROCESS_GROUP_NAME = "process";

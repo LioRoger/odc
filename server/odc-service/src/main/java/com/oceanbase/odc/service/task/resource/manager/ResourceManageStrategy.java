@@ -15,6 +15,8 @@
  */
 package com.oceanbase.odc.service.task.resource.manager;
 
+import java.util.List;
+
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
 
@@ -54,7 +56,15 @@ public interface ResourceManageStrategy {
             ResourceAllocateInfoEntity entity);
 
     /**
-     * manager resource, do real resource related operation
+     * release resource for given endpoint
+     * @param endpoint
      */
-    void manageResource();
+    void releaseResourceById(SupervisorEndpointEntity endpoint);
+
+    /**
+     * pick up resource expect to released
+     * @param entity
+     * @return
+     */
+    List<SupervisorEndpointEntity> pickReleasedEndpoint(List<SupervisorEndpointEntity> entity);
 }

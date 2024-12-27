@@ -18,9 +18,12 @@ package com.oceanbase.odc.service.task.resource.manager.strategy.k8s;
 import java.text.MessageFormat;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import org.apache.commons.collections4.CollectionUtils;
 
 import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.common.util.StringUtils;
@@ -100,7 +103,8 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
         try {
             K8sPodResource podResource = k8sPodResource.getResource();
             podResource.setServicePort(String.valueOf(k8sProperties.getSupervisorListenPort()));
-            return supervisorEndpointRepositoryWrap.save(podResource, k8sPodResource.getId());
+            // create with load 1 to let resource not released
+            return supervisorEndpointRepositoryWrap.save(podResource, k8sPodResource.getId(), 0);
         } catch (Throwable e) {
             log.warn("save k8s pod resource to endpoint failed", e);
             resourceManager.release(k8sPodResource.getResource().resourceID());
@@ -146,29 +150,8 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
         return supervisorEndpoint.getLoads() == 0;
     }
 
-    // 1. try release unused resource
-    // 2. try detect creating resource
-    // the order can't be swapped
-    @Override
-    public void manageResource() {
-        scanEndpointsToRelease();
-        detectPreparingResource();
-    }
 
-    protected void scanEndpointsToRelease() {
-        List<SupervisorEndpointEntity> endpointEntityList =
-                supervisorEndpointRepositoryWrap.collectIdleAvailableSupervisorEndpoint();
-        List<SupervisorEndpointEntity> toReleased = pickReleasedEndpoint(endpointEntityList);
-        for (SupervisorEndpointEntity endpoint : toReleased) {
-            try {
-                releaseResourceById(endpoint);
-            } catch (Throwable e) {
-                log.warn("release endpoint = {} failed", endpoint, e);
-            }
-        }
-    }
-
-    protected void releaseResourceById(SupervisorEndpointEntity endpoint) {
+    public void releaseResourceById(SupervisorEndpointEntity endpoint) {
         // first release resource
         Optional<ResourceEntity> resourceEntity = resourceManager.getResourceRepository().findById(
                 endpoint.getResourceID());
@@ -197,40 +180,19 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
 
     // pick endpoints to release
     // derived logic here to impl you own strategy
-    protected List<SupervisorEndpointEntity> pickReleasedEndpoint(List<SupervisorEndpointEntity> entity) {
-        return entity;
-    }
-
-    protected void detectPreparingResource() {
-        List<SupervisorEndpointEntity> endpointEntityList =
-                supervisorEndpointRepositoryWrap.collectPreparingSupervisorEndpoint();
-        for (SupervisorEndpointEntity endpoint : endpointEntityList) {
-            try {
-                detectIfResourceIsReady(endpoint);
-            } catch (Throwable e) {
-                log.warn("detect preparing endpoint = {} failed", endpoint, e);
-            }
+    public List<SupervisorEndpointEntity> pickReleasedEndpoint(List<SupervisorEndpointEntity> entity) {
+        if (CollectionUtils.isEmpty(entity)) {
+            return entity;
         }
-    }
-
-    protected void detectIfResourceIsReady(SupervisorEndpointEntity entity) {
-        SupervisorEndpoint endpoint = entity.getEndpoint();
-        if (remoteTaskSupervisorProxy.isSupervisorAlive(endpoint)) {
-            supervisorEndpointRepositoryWrap.onlineSupervisorEndpoint(entity);
+        List<SupervisorEndpointEntity> toReleased = new ArrayList<>(entity);
+        toReleased.sort((e1, e2) -> e2.getUpdateTime().compareTo(e1.getUpdateTime()));
+        SupervisorEndpointEntity first = toReleased.get(0);
+        // maintain at most one agent for most 300 seconds
+        if (Duration.between(first.getUpdateTime().toInstant(), Instant.now()).getSeconds() > 300) {
+            return entity;
         } else {
-            if (isSupervisorEndpointExpired(entity)) {
-                log.debug("supervisor detect alive timeout, endpoint = {}, release it", endpoint);
-                releaseResourceById(entity);
-                supervisorEndpointRepositoryWrap.offSupervisorEndpoint(entity);
-            }
-            log.debug("supervisor not alive yet, endpoint = {}", endpoint);
+            toReleased.remove(0);
+            return toReleased;
         }
-    }
-
-    protected boolean isSupervisorEndpointExpired(SupervisorEndpointEntity entity) {
-        Duration between = Duration.between(entity.getUpdateTime().toInstant(), Instant.now());
-        // 300 seconds considered as timeout
-        // TODO(lx): config it
-        return (between.toMillis() / 1000 > 360);
     }
 }

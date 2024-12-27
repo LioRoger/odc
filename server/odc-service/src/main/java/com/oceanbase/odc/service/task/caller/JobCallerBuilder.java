@@ -15,6 +15,7 @@
  */
 package com.oceanbase.odc.service.task.caller;
 
+import java.util.Date;
 import java.util.Map;
 
 import com.oceanbase.odc.common.util.StringUtils;
@@ -99,7 +100,7 @@ public class JobCallerBuilder {
     }
 
     public static JobCaller buildK8sJobCaller(PodConfig podConfig, JobContext context,
-            ResourceManager resourceManager) {
+            ResourceManager resourceManager, Date jobCreateTime) {
         Map<String, String> environments = buildK8sEnv(context);
         // common environment variables
         environments.put(JobEnvKeyConstants.ODC_LOG_DIRECTORY, podConfig.getMountPath());
@@ -107,6 +108,6 @@ public class JobCallerBuilder {
         JobUtils.encryptEnvironments(environments);
 
         podConfig.setEnvironments(environments);
-        return new K8sJobCaller(podConfig, resourceManager);
+        return new K8sJobCaller(podConfig, resourceManager, jobCreateTime);
     }
 }

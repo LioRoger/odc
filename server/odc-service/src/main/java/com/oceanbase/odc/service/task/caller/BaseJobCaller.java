@@ -60,6 +60,7 @@ public abstract class BaseJobCaller implements JobCaller {
             }
 
         } catch (Exception ex) {
+            log.info("start job failed, cause={}", ex.getMessage());
             afterStartFailed(ji, executorIdentifier, ex);
         }
     }

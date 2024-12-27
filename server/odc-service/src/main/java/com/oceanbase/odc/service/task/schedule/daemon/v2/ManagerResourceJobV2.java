@@ -65,7 +65,7 @@ public class ManagerResourceJobV2 implements Job {
     private void processTaskResource(TaskResourceManager taskResourceManager,
             TaskFrameworkProperties taskFrameworkProperties) {
         try {
-            taskResourceManager.execute();
+            taskResourceManager.execute(configuration.getTransactionManager());
         } catch (Throwable e) {
             log.warn("process task resource failed cause", e);
         }

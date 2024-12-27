@@ -36,6 +36,10 @@ public enum ResourceAllocateState {
     FINISHED;
 
     public static ResourceAllocateState fromString(String allocateState) {
-        return ResourceAllocateState.valueOf(StringUtils.upperCase(allocateState));
+        return ResourceAllocateState.valueOf(StringUtils.upperCase(StringUtils.trim(allocateState)));
+    }
+
+    public boolean equal(String allocateState) {
+        return StringUtils.equalsIgnoreCase(name(), StringUtils.trim(allocateState));
     }
 }

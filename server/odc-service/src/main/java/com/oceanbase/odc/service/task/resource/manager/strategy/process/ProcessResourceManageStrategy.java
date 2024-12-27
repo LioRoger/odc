@@ -15,6 +15,8 @@
  */
 package com.oceanbase.odc.service.task.resource.manager.strategy.process;
 
+import java.util.List;
+
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
 import com.oceanbase.odc.service.task.resource.manager.ResourceManageStrategy;
@@ -60,7 +62,14 @@ public class ProcessResourceManageStrategy implements ResourceManageStrategy {
     }
 
     @Override
-    public void manageResource() {
-        // do nothing
+    public void releaseResourceById(SupervisorEndpointEntity endpoint) {
+        throw new RuntimeException("not support yet");
     }
+
+    // nothing released
+    @Override
+    public List<SupervisorEndpointEntity> pickReleasedEndpoint(List<SupervisorEndpointEntity> entity) {
+        return null;
+    }
+
 }

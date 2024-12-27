@@ -104,7 +104,7 @@ public class ImmediateJobDispatcher implements JobDispatcher {
             if (StringUtils.isNotBlank(regionName)) {
                 podConfig.setRegion(regionName);
             }
-            return JobCallerBuilder.buildK8sJobCaller(podConfig, context, resourceManager);
+            return JobCallerBuilder.buildK8sJobCaller(podConfig, context, resourceManager, je.getCreateTime());
         } else {
             return JobCallerBuilder.buildProcessCaller(context,
                     new JobEnvironmentFactory().build(context, TaskRunMode.PROCESS));

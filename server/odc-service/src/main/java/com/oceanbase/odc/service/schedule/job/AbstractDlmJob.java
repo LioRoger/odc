@@ -34,6 +34,7 @@ import com.oceanbase.odc.service.dlm.DlmLimiterService;
 import com.oceanbase.odc.service.quartz.util.ScheduleTaskUtils;
 import com.oceanbase.odc.service.schedule.ScheduleService;
 import com.oceanbase.odc.service.task.base.dataarchive.DataArchiveTask;
+import com.oceanbase.odc.service.task.caller.ResourceIDUtil;
 import com.oceanbase.odc.service.task.config.TaskFrameworkEnabledProperties;
 import com.oceanbase.odc.service.task.constants.JobParametersKeyConstants;
 import com.oceanbase.odc.service.task.executor.task.TaskDescription;
@@ -114,6 +115,9 @@ public abstract class AbstractDlmJob implements OdcJob {
         if (provider != null && StringUtils.isNotEmpty(region)) {
             JobPropertiesUtils.setCloudProvider(jobProperties, provider);
             JobPropertiesUtils.setRegionName(jobProperties, region);
+        } else {
+            JobPropertiesUtils.setDefaultCloudProvider(jobProperties);
+            JobPropertiesUtils.setDefaultRegionName(jobProperties);
         }
         SingleJobProperties singleJobProperties = new SingleJobProperties();
         singleJobProperties.setEnableRetryAfterHeartTimeout(true);

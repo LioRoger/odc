@@ -54,7 +54,7 @@ public class SupervisorEndpointRepositoryWrap {
         this.repository.updateStatusById(endpoint.getId(), SupervisorEndpointState.UNAVAILABLE.name());
     }
 
-    public SupervisorEndpointEntity save(K8sPodResource k8sPodResource, long resourceID) {
+    public SupervisorEndpointEntity save(K8sPodResource k8sPodResource, long resourceID, int initLoad) {
         SupervisorEndpointEntity endpoint = new SupervisorEndpointEntity();
         endpoint.setPort(Integer.valueOf(k8sPodResource.getServicePort()));
         endpoint.setHost(k8sPodResource.getPodIpAddress());
@@ -62,7 +62,7 @@ public class SupervisorEndpointRepositoryWrap {
         endpoint.setResourceGroup(k8sPodResource.getGroup());
         endpoint.setResourceRegion(k8sPodResource.getRegion());
         endpoint.setResourceID(resourceID);
-        endpoint.setLoads(0);
+        endpoint.setLoads(initLoad);
         return repository.save(endpoint);
     }
 
@@ -104,7 +104,7 @@ public class SupervisorEndpointRepositoryWrap {
     public List<SupervisorEndpointEntity> collectIdleAvailableSupervisorEndpoint() {
         Specification<SupervisorEndpointEntity> condition = Specification.where(
                 SpecificationUtil.columnEqual("status", SupervisorEndpointState.AVAILABLE.name()));
-        condition = condition.and(SpecificationUtil.columnGreater("loads", 0L));
+        condition = condition.and(SpecificationUtil.columnLessThanOrEqualTo("loads", 0L));
         return repository.findAll(condition, PageRequest.of(0, 100)).getContent();
     }
 

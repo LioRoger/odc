@@ -143,12 +143,24 @@ public class NativeK8sJobClient implements K8sJobClient {
                     createdJob.getStatus().getPodIP(), String.valueOf(k8sProperties.getExecutorListenPort()),
                     new Date(System.currentTimeMillis() / 1000));
         } catch (ApiException e) {
+            Optional<K8sPodResource> existedPod = null;
+            if (isPodAlreadyExists(e)) {
+                existedPod = get(namespace, name);
+            }
+            // return existed pod
+            if (null != existedPod && existedPod.isPresent()) {
+                return existedPod.get();
+            }
             if (e.getResponseBody() != null) {
                 throw new JobException(e.getResponseBody(), e);
             } else {
                 throw new JobException("Create job occur error:", e);
             }
         }
+    }
+
+    protected boolean isPodAlreadyExists(ApiException e) {
+        return StringUtils.containsIgnoreCase(e.getResponseBody(), "already exists");
     }
 
     @Override
@@ -208,7 +220,7 @@ public class NativeK8sJobClient implements K8sJobClient {
 
         V1PodSpec v1PodSpec = new V1PodSpec()
                 .containers(Collections.singletonList(container))
-                .restartPolicy(RESTART_POLICY_NEVER);
+                .restartPolicy("Always");
 
         return new V1Pod()
                 .apiVersion(getVersion()).kind(getKind())
