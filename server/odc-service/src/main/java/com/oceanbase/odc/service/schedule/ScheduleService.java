@@ -23,7 +23,6 @@ import java.text.MessageFormat;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -44,6 +43,7 @@ import org.quartz.Trigger;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cglib.beans.BeanMap;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -52,6 +52,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
+import com.alibaba.fastjson.JSONObject;
 import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.common.util.StringUtils;
 import com.oceanbase.odc.core.alarm.AlarmUtils;
@@ -73,19 +74,22 @@ import com.oceanbase.odc.metadb.schedule.LatestTaskMappingEntity;
 import com.oceanbase.odc.metadb.schedule.LatestTaskMappingRepository;
 import com.oceanbase.odc.metadb.schedule.ScheduleEntity;
 import com.oceanbase.odc.metadb.schedule.ScheduleRepository;
+import com.oceanbase.odc.metadb.schedule.ScheduleTaskEntity;
+import com.oceanbase.odc.metadb.schedule.ScheduleTaskRepository;
 import com.oceanbase.odc.service.collaboration.project.ProjectService;
 import com.oceanbase.odc.service.collaboration.project.model.Project;
 import com.oceanbase.odc.service.common.util.SpringContextUtil;
 import com.oceanbase.odc.service.connection.ConnectionService;
 import com.oceanbase.odc.service.connection.database.DatabaseService;
 import com.oceanbase.odc.service.connection.database.model.Database;
+import com.oceanbase.odc.service.connection.model.ConnectionConfig;
+import com.oceanbase.odc.service.connection.model.QueryConnectionParams;
 import com.oceanbase.odc.service.dlm.DlmLimiterService;
 import com.oceanbase.odc.service.dlm.model.DataArchiveParameters;
 import com.oceanbase.odc.service.dlm.model.DataDeleteParameters;
 import com.oceanbase.odc.service.dlm.model.RateLimitConfiguration;
 import com.oceanbase.odc.service.flow.model.CreateFlowInstanceReq;
 import com.oceanbase.odc.service.flow.model.FlowInstanceDetailResp;
-import com.oceanbase.odc.service.flow.util.DescriptionGenerator;
 import com.oceanbase.odc.service.iam.OrganizationService;
 import com.oceanbase.odc.service.iam.ProjectPermissionValidator;
 import com.oceanbase.odc.service.iam.UserService;
@@ -127,6 +131,7 @@ import com.oceanbase.odc.service.schedule.model.TriggerConfig;
 import com.oceanbase.odc.service.schedule.model.TriggerStrategy;
 import com.oceanbase.odc.service.schedule.model.UpdateScheduleReq;
 import com.oceanbase.odc.service.schedule.processor.ScheduleChangePreprocessor;
+import com.oceanbase.odc.service.schedule.util.ScheduleDescriptionGenerator;
 import com.oceanbase.odc.service.sqlplan.model.SqlPlanParameters;
 import com.oceanbase.odc.service.task.constants.JobParametersKeyConstants;
 import com.oceanbase.odc.service.task.exception.JobException;
@@ -148,6 +153,9 @@ import lombok.extern.slf4j.Slf4j;
 public class ScheduleService {
     @Autowired
     private ScheduleRepository scheduleRepository;
+
+    @Autowired
+    private ScheduleTaskRepository scheduleTaskRepository;
     @Autowired
     private AuthenticationFacade authenticationFacade;
     @Autowired
@@ -166,6 +174,7 @@ public class ScheduleService {
     private ScheduleResponseMapperFactory scheduleResponseMapperFactory;
 
     @Autowired
+    @Lazy
     private ProjectService projectService;
 
     @Autowired
@@ -210,8 +219,12 @@ public class ScheduleService {
     @Autowired
     private ApprovalFlowClient approvalFlowService;
 
+    @Autowired
+    private ScheduleDescriptionGenerator descriptionGenerator;
+
     private final ScheduleMapper scheduleMapper = ScheduleMapper.INSTANCE;
 
+    @Transactional(rollbackFor = Exception.class)
     public List<FlowInstanceDetailResp> dispatchCreateSchedule(CreateFlowInstanceReq createReq) {
         AlterScheduleParameters parameters = (AlterScheduleParameters) createReq.getParameters();
         // adapt history parameters
@@ -266,7 +279,9 @@ public class ScheduleService {
 
             entity.setName(req.getCreateScheduleReq().getName());
             entity.setProjectId(req.getProjectId());
-            DescriptionGenerator.generateScheduleDescription(req);
+            if (StringUtils.isEmpty(req.getCreateScheduleReq().getDescription())) {
+                descriptionGenerator.generateScheduleDescription(req);
+            }
             entity.setDescription(req.getCreateScheduleReq().getDescription());
             entity.setJobParametersJson(JsonUtils.toJson(req.getCreateScheduleReq().getParameters()));
             entity.setTriggerConfigJson(JsonUtils.toJson(req.getCreateScheduleReq().getTriggerConfig()));
@@ -303,18 +318,17 @@ public class ScheduleService {
             targetSchedule = nullSafeGetByIdWithCheckPermission(req.getScheduleId(), true);
             if (req.getOperationType() == OperationType.UPDATE) {
                 validateTriggerConfig(req.getUpdateScheduleReq().getTriggerConfig());
+                PreConditions.validRequestState(targetSchedule.getStatus() == ScheduleStatus.PAUSE,
+                        ErrorCodes.UpdateNotAllowed, null, "Update schedule is not allowed.");
             }
-            if (req.getOperationType() == OperationType.UPDATE
-                    && (targetSchedule.getStatus() != ScheduleStatus.PAUSE || hasRunningTask(targetSchedule.getId()))) {
-                log.warn("Update schedule is not allowed,status={}", targetSchedule.getStatus());
-                throw new IllegalStateException("Update schedule is not allowed.");
+            if (req.getOperationType() == OperationType.PAUSE) {
+                PreConditions.validRequestState(!hasExecutingTask(targetSchedule.getId()), ErrorCodes.PauseNotAllowed,
+                        null, "Pause schedule is not allowed.");
             }
-            if (req.getOperationType() == OperationType.DELETE
-                    && targetSchedule.getStatus() != ScheduleStatus.TERMINATED
-                    && targetSchedule.getStatus() != ScheduleStatus.COMPLETED) {
-                log.warn("Delete schedule is not allowed,status={}", targetSchedule.getStatus());
-                throw new IllegalStateException(
-                        "Delete schedule is not allowed, only can delete terminated schedule or finished schedule.");
+            if (req.getOperationType() == OperationType.DELETE) {
+                PreConditions.validRequestState(targetSchedule.getStatus() == ScheduleStatus.TERMINATED
+                        || targetSchedule.getStatus() == ScheduleStatus.COMPLETED, ErrorCodes.DeleteNotAllowed, null,
+                        "Delete schedule is not allowed.");
             }
         }
 
@@ -351,16 +365,36 @@ public class ScheduleService {
                         "Concurrent change schedule request is not allowed");
             }
 
+            String pre = null;
+            String curr = null;
+            if (req.getOperationType() == OperationType.UPDATE) {
+                JSONObject preJsonObject = new JSONObject();
+                preJsonObject.put("triggerConfig", targetSchedule.getTriggerConfig());
+                preJsonObject.put("parameters", targetSchedule.getParameters());
+                pre = preJsonObject.toJSONString();
+                JSONObject currJsonOBject = new JSONObject();
+                currJsonOBject.put("triggerConfig", req.getUpdateScheduleReq().getTriggerConfig());
+                currJsonOBject.put("parameters", req.getUpdateScheduleReq().getParameters());
+                curr = currJsonOBject.toJSONString();
+            } else if (req.getOperationType() == OperationType.CREATE) {
+                JSONObject currJsonOBject = new JSONObject();
+                currJsonOBject.put("triggerConfig", req.getCreateScheduleReq().getTriggerConfig());
+                currJsonOBject.put("parameters", req.getCreateScheduleReq().getParameters());
+                curr = currJsonOBject.toJSONString();
+            }
+
             ScheduleChangeLog changeLog = scheduleChangeLogService.createChangeLog(
-                    ScheduleChangeLog.build(targetSchedule.getId(), req.getOperationType(),
-                            JsonUtils.toJson(targetSchedule.getParameters()),
-                            req.getOperationType() == OperationType.UPDATE
-                                    ? JsonUtils.toJson(req.getUpdateScheduleReq().getParameters())
-                                    : null,
+                    ScheduleChangeLog.build(targetSchedule.getId(), req.getOperationType(), pre, curr,
                             ScheduleChangeStatus.APPROVING));
             log.info("Create change log success,changLog={}", changeLog);
             req.setScheduleChangeLogId(changeLog.getId());
-            Long approvalFlowInstanceId = approvalFlowService.create(req);
+            Long approvalFlowInstanceId;
+            if (organizationService.get(targetSchedule.getId()).isPresent()
+                    && organizationService.get(targetSchedule.getId()).get().getType() == OrganizationType.INDIVIDUAL) {
+                approvalFlowInstanceId = null;
+            } else {
+                approvalFlowInstanceId = approvalFlowService.create(req);
+            }
             if (approvalFlowInstanceId != null) {
                 changeLog.setFlowInstanceId(approvalFlowInstanceId);
                 scheduleChangeLogService.updateFlowInstanceIdById(changeLog.getId(), approvalFlowInstanceId);
@@ -595,10 +629,6 @@ public class ScheduleService {
     }
 
     private boolean isValidSchedule(Schedule schedule) {
-
-        if (schedule.getStatus() != ScheduleStatus.ENABLED) {
-            return false;
-        }
         // check project
         if (schedule.getProjectId() != null) {
             try {
@@ -794,9 +824,22 @@ public class ScheduleService {
                 : returnValue.map(o -> scheduleId2Overview.get(o.getId()));
     }
 
+    public Page<ScheduleOverviewHist> listUnfinishedSchedulesByProjectId(@NonNull Pageable pageable,
+            @NonNull Long projectId) {
+        return list(pageable, QueryScheduleParams.builder().projectIds(Collections.singleton(projectId))
+                .statuses(ScheduleStatus.listUnfinishedStatus()).build());
+    }
+
+    public int getEnabledScheduleCountByProjectId(@NonNull Long projectId) {
+        return scheduleRepository.getEnabledScheduleCountByProjectId(projectId);
+    }
+
     public Page<ScheduleOverview> listScheduleOverview(@NotNull Pageable pageable,
             @NotNull QueryScheduleParams params) {
         log.info("List schedule overview req:{}", params);
+        if (StringUtils.isNotEmpty(params.getId()) && !StringUtils.isNumeric(params.getId())) {
+            return Page.empty();
+        }
         if (StringUtils.isNotBlank(params.getCreator())) {
             Set<Long> creatorIds = userService.getUsersByFuzzyNameWithoutPermissionCheck(
                     params.getCreator()).stream().map(User::getId).collect(Collectors.toSet());
@@ -805,24 +848,21 @@ public class ScheduleService {
             }
             params.setCreatorIds(creatorIds);
         }
-        if (params.getDataSourceIds() == null) {
-            params.setDataSourceIds(new HashSet<>());
-        }
-        if (StringUtils.isNotEmpty(params.getClusterId())) {
-            List<Long> datasourceIdsByCluster = connectionService.innerListIdByOrganizationIdAndClusterId(
-                    authenticationFacade.currentOrganizationId(), params.getClusterId());
-            if (datasourceIdsByCluster.isEmpty()) {
+        if (!CollectionUtils.isEmpty(params.getDataSourceIds()) || StringUtils.isNotEmpty(params.getClusterId())
+                || StringUtils.isNotEmpty(params.getTenantId()) || StringUtils.isNotEmpty(params.getDataSourceName())) {
+            QueryConnectionParams datasourceParams = QueryConnectionParams.builder()
+                    .ids(params.getDataSourceIds())
+                    .clusterNames(Collections.singletonList(params.getClusterId()))
+                    .tenantNames(Collections.singletonList(params.getTenantId()))
+                    .name(params.getDataSourceName())
+                    .build();
+            Set<Long> datasourceIds = connectionService.listSkipPermissionCheck(datasourceParams).stream().map(
+                    ConnectionConfig::getId).collect(
+                            Collectors.toSet());
+            if (datasourceIds.isEmpty()) {
                 return Page.empty();
             }
-            params.getDataSourceIds().addAll(datasourceIdsByCluster);
-        }
-        if (StringUtils.isNotEmpty(params.getTenantId())) {
-            List<Long> datasourceIdsByTenantId = connectionService.innerListIdByOrganizationIdAndTenantId(
-                    authenticationFacade.currentOrganizationId(), params.getTenantId());
-            if (datasourceIdsByTenantId.isEmpty()) {
-                return Page.empty();
-            }
-            params.getDataSourceIds().addAll(datasourceIdsByTenantId);
+            params.setDataSourceIds(datasourceIds);
         }
         // load project by unique identifier if project id is null
         if (params.getProjectId() == null && StringUtils.isNotEmpty(params.getProjectUniqueIdentifier())) {
@@ -846,13 +886,6 @@ public class ScheduleService {
         Page<ScheduleEntity> returnValue = scheduleRepository.find(pageable, params);
         List<ScheduleEntity> schedules = returnValue.getContent();
 
-        if (params.getTriggerStrategy() != null) {
-            schedules = schedules.stream().filter(schedule -> {
-                TriggerConfig triggerConfig = JsonUtils.fromJson(schedule.getTriggerConfigJson(), TriggerConfig.class);
-                return triggerConfig.getTriggerStrategy().equals(params.getTriggerStrategy());
-            }).collect(Collectors.toList());
-        }
-
         Map<Long, ScheduleOverview> id2Overview =
                 scheduleResponseMapperFactory.generateScheduleOverviewListMapper(schedules);
 
@@ -870,29 +903,12 @@ public class ScheduleService {
         return scheduleTaskService.getScheduleTaskListResp(pageable, scheduleId);
     }
 
-    public Page<ScheduleTaskListOverview> listScheduleTaskOverviewByScheduleType(@NotNull Pageable pageable,
+    public Page<ScheduleTaskListOverview> listScheduleTaskListOverview(@NotNull Pageable pageable,
             @NotNull QueryScheduleTaskParams params) {
         log.info("List schedule task overview req, params={}", params);
-        if (params.getDataSourceIds() == null) {
-            params.setDataSourceIds(new HashSet<>());
+        if (StringUtils.isNotEmpty(params.getId()) && !StringUtils.isNumeric(params.getId())) {
+            return Page.empty();
         }
-        if (StringUtils.isNotEmpty(params.getClusterId())) {
-            List<Long> datasourceIdsByCluster = connectionService.innerListIdByOrganizationIdAndClusterId(
-                    authenticationFacade.currentOrganizationId(), params.getClusterId());
-            if (datasourceIdsByCluster.isEmpty()) {
-                return Page.empty();
-            }
-            params.getDataSourceIds().addAll(datasourceIdsByCluster);
-        }
-        if (StringUtils.isNotEmpty(params.getTenantId())) {
-            List<Long> datasourceIdsByTenantId = connectionService.innerListIdByOrganizationIdAndTenantId(
-                    authenticationFacade.currentOrganizationId(), params.getTenantId());
-            if (datasourceIdsByTenantId.isEmpty()) {
-                return Page.empty();
-            }
-            params.getDataSourceIds().addAll(datasourceIdsByTenantId);
-        }
-
         if (authenticationFacade.currentOrganization().getType() == OrganizationType.TEAM) {
             Set<Long> projectIds = params.getProjectId() == null
                     ? projectService.getMemberProjectIds(authenticationFacade.currentUserId())
@@ -902,28 +918,26 @@ public class ScheduleService {
             }
             params.setProjectIds(projectIds);
         }
-        params.setOrganizationId(authenticationFacade.currentOrganizationId());
-
         QueryScheduleParams scheduleParams = QueryScheduleParams.builder()
                 .id(params.getScheduleId())
                 .name(params.getScheduleName())
                 .dataSourceIds(params.getDataSourceIds())
                 .databaseName(params.getDatabaseName())
                 .type(params.getScheduleType())
-                .creator(params.getCreator())
-                .projectId(params.getProjectId())
+                .creatorIds(params.getCreatorIds())
+                .projectIds(params.getProjectIds())
                 .organizationId(authenticationFacade.currentOrganizationId())
                 .build();
-
-        List<Schedule> scheduleList = scheduleRepository.find(scheduleParams).stream()
-                .map(scheduleMapper::entityToModel)
-                .collect(Collectors.toList());
-        if (scheduleList.isEmpty()) {
+        Set<Long> scheduleIds = scheduleRepository.find(Pageable.unpaged(), scheduleParams).getContent()
+                .stream().map(ScheduleEntity::getId).collect(Collectors.toSet());
+        if (scheduleIds.isEmpty()) {
             return Page.empty();
         }
-        params.setSchedules(scheduleList);
-
-        return scheduleTaskService.getConditionalScheduleTaskListResp(pageable, params);
+        params.setScheduleIds(scheduleIds);
+        Page<ScheduleTaskEntity> returnValue = scheduleTaskRepository.find(pageable, params);
+        Map<Long, ScheduleTaskListOverview> taskId2Overview =
+                scheduleResponseMapperFactory.generateScheduleTaskOverviewListMapper(returnValue.getContent());
+        return returnValue.map(o -> taskId2Overview.get(o.getId()));
     }
 
     public List<String> getAsyncDownloadUrl(Long id, List<String> objectIds) {
@@ -1038,10 +1052,6 @@ public class ScheduleService {
             return Optional.empty();
         }
         return Optional.of(res.get(0));
-    }
-
-    public boolean hasRunningTask(Long id) {
-        return false;
     }
 
     public void terminateByDatasourceIds(Set<Long> datasourceIds) {

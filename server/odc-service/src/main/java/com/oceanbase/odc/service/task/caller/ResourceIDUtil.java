@@ -32,9 +32,10 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class ResourceIDUtil {
-    public static final String DEFAULT_REGION_PROP_NAME = "regionName";
-    public static final String DEFAULT_GROUP_PROP_NAME = "cloudProvider";
-    public static final String PROCESS_REGION_NAME = "local";
+    public static final String REGION_PROP_NAME = "regionName";
+    public static final String GROUP_PROP_NAME = "cloudProvider";
+    public static final String DEFAULT_PROP_VALUE = "local";
+    public static final String PROCESS_REGION_NAME = DEFAULT_PROP_VALUE;
     public static final String PROCESS_GROUP_NAME = "process";
     public static final ResourceLocation PROCESS_RESOURCE_LOCATION =
             new ResourceLocation(PROCESS_REGION_NAME, PROCESS_GROUP_NAME);
@@ -75,8 +76,8 @@ public class ResourceIDUtil {
     }
 
     public static ResourceLocation getResourceLocation(Map<String, String> jobProperties) {
-        String region = checkAndGetJobProperties(jobProperties, DEFAULT_REGION_PROP_NAME);
-        String group = checkAndGetJobProperties(jobProperties, DEFAULT_GROUP_PROP_NAME);
+        String region = checkAndGetJobProperties(jobProperties, REGION_PROP_NAME);
+        String group = checkAndGetJobProperties(jobProperties, GROUP_PROP_NAME);
         return new ResourceLocation(region, group);
     }
 

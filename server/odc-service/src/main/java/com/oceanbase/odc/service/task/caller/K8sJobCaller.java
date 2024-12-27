@@ -80,9 +80,9 @@ public class K8sJobCaller extends BaseJobCaller {
     protected ResourceLocation buildResourceLocation(JobContext context) {
         // TODO(tianke): confirm is this correct?
         String region = ResourceIDUtil.checkAndGetJobProperties(context.getJobProperties(),
-                ResourceIDUtil.DEFAULT_REGION_PROP_NAME);
+                ResourceIDUtil.REGION_PROP_NAME);
         String group = ResourceIDUtil.checkAndGetJobProperties(context.getJobProperties(),
-                ResourceIDUtil.DEFAULT_GROUP_PROP_NAME);
+                ResourceIDUtil.GROUP_PROP_NAME);
         return new ResourceLocation(region, group);
     }
 

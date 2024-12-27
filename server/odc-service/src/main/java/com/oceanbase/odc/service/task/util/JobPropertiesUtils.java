@@ -41,7 +41,7 @@ public class JobPropertiesUtils {
 
     public static void setCloudProvider(@NonNull Map<String, String> jobProperties,
             @NonNull CloudProvider cloudProvider) {
-        jobProperties.put("cloudProvider", cloudProvider.toString());
+        jobProperties.put(ResourceIDUtil.GROUP_PROP_NAME, cloudProvider.toString());
     }
 
     public static void setDefaultCloudProvider(@NonNull Map<String, String> jobProperties) {
@@ -49,12 +49,12 @@ public class JobPropertiesUtils {
     }
 
     public static CloudProvider getCloudProvider(@NonNull Map<String, String> jobProperties) {
-        String cloudProvider = jobProperties.get("cloudProvider");
+        String cloudProvider = jobProperties.get(ResourceIDUtil.GROUP_PROP_NAME);
         return StringUtils.isBlank(cloudProvider) ? CloudProvider.NONE : CloudProvider.valueOf(cloudProvider);
     }
 
     public static void setRegionName(@NonNull Map<String, String> jobProperties, @NonNull String regionName) {
-        jobProperties.put("regionName", regionName);
+        jobProperties.put(ResourceIDUtil.REGION_PROP_NAME, regionName);
     }
 
     public static void setDefaultRegionName(@NonNull Map<String, String> jobProperties) {
@@ -62,7 +62,7 @@ public class JobPropertiesUtils {
     }
 
     public static String getRegionName(@NonNull Map<String, String> jobProperties) {
-        return jobProperties.get("regionName");
+        return jobProperties.get(ResourceIDUtil.REGION_PROP_NAME);
     }
 
     public static void setMonitorMode(@NonNull Map<String, String> jobProperties,

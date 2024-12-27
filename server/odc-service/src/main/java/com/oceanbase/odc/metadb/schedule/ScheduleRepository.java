@@ -57,7 +57,7 @@ public interface ScheduleRepository extends OdcJpaRepository<ScheduleEntity, Lon
             + "where id=:id", nativeQuery = true)
     int updateJobParametersById(@Param("id") Long id, @Param("jobParametersJson") String jobParametersJson);
 
-    @Query(value = "select count(1) from schedule_schedule where project_id=:projectId and status = 'ENABLED'",
+    @Query(value = "select count(1) from schedule_schedule where project_id=:projectId and status in ('ENABLED', 'CREATING', 'APPROVING', 'PAUSE')",
             nativeQuery = true)
     int getEnabledScheduleCountByProjectId(@Param("projectId") Long projectId);
 
@@ -75,20 +75,5 @@ public interface ScheduleRepository extends OdcJpaRepository<ScheduleEntity, Lon
                 .and(OdcJpaRepository.like(ScheduleEntity_.name, params.getName()))
                 .and(OdcJpaRepository.eq(ScheduleEntity_.organizationId, params.getOrganizationId()));
         return findAll(specification, pageable);
-    }
-
-    default List<ScheduleEntity> find(@NotNull QueryScheduleParams params) {
-        Specification<ScheduleEntity> specification = Specification
-                .where(OdcJpaRepository.between(ScheduleEntity_.createTime, params.getStartTime(), params.getEndTime()))
-                .and(OdcJpaRepository.in(ScheduleEntity_.dataSourceId, params.getDataSourceIds()))
-                .and(OdcJpaRepository.eq(ScheduleEntity_.databaseName, params.getDatabaseName()))
-                .and(OdcJpaRepository.eq(ScheduleEntity_.type, params.getType()))
-                .and(OdcJpaRepository.in(ScheduleEntity_.projectId, params.getProjectIds()))
-                .and(OdcJpaRepository.eq(ScheduleEntity_.id, params.getId()))
-                .and(OdcJpaRepository.notEq(ScheduleEntity_.status, ScheduleStatus.DELETED))
-                .and(OdcJpaRepository.in(ScheduleEntity_.creatorId, params.getCreatorIds()))
-                .and(OdcJpaRepository.like(ScheduleEntity_.name, params.getName()))
-                .and(OdcJpaRepository.eq(ScheduleEntity_.organizationId, params.getOrganizationId()));
-        return findAll(specification);
     }
 }
