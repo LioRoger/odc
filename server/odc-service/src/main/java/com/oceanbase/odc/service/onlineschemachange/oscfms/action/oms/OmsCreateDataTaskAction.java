@@ -175,6 +175,7 @@ public class OmsCreateDataTaskAction implements Action<OscActionContext, OscActi
         TableTransferObject tableTransferObject = new TableTransferObject();
         tableTransferObject.setName(oscScheduleTaskParameters.getOriginTableNameUnwrapped());
         tableTransferObject.setMappedName(oscScheduleTaskParameters.getNewTableNameUnwrapped());
+        tableTransferObject.setFilterColumns(oscScheduleTaskParameters.getFilterColumns());
         tables.add(tableTransferObject);
         databaseTransferObject.setTables(tables);
 
