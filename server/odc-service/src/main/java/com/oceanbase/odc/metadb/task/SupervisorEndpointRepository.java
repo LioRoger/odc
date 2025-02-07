@@ -64,6 +64,13 @@ public interface SupervisorEndpointRepository extends JpaRepository<SupervisorEn
 
     @Transactional
     @Query(value = "update supervisor_endpoint set "
+            + " host=:host"
+            + " where id=:id", nativeQuery = true)
+    @Modifying
+    int updateHostById(@Param("host") String host, @Param("id") Long id);
+
+    @Transactional
+    @Query(value = "update supervisor_endpoint set "
             + "loads = loads + :loadToAdd"
             + " where host=:hostToFind and port=:portToFind and resource_id = :resourceIdToFind", nativeQuery = true)
     @Modifying

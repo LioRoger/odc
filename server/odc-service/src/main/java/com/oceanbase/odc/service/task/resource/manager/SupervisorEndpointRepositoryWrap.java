@@ -54,6 +54,10 @@ public class SupervisorEndpointRepositoryWrap {
         this.repository.updateStatusById(endpoint.getId(), SupervisorEndpointState.UNAVAILABLE.name());
     }
 
+    public void updateEndpointHost(SupervisorEndpointEntity endpoint) {
+        this.repository.updateHostById(endpoint.getHost(), endpoint.getId());
+    }
+
     public SupervisorEndpointEntity save(K8sPodResource k8sPodResource, long resourceID, int initLoad) {
         SupervisorEndpointEntity endpoint = new SupervisorEndpointEntity();
         endpoint.setPort(Integer.valueOf(k8sPodResource.getServicePort()));

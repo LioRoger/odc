@@ -34,12 +34,14 @@ import com.oceanbase.odc.metadb.resource.ResourceEntity;
 import com.oceanbase.odc.metadb.task.ResourceAllocateInfoEntity;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointEntity;
 import com.oceanbase.odc.metadb.task.SupervisorEndpointRepository;
+import com.oceanbase.odc.service.resource.Resource;
 import com.oceanbase.odc.service.resource.ResourceID;
 import com.oceanbase.odc.service.resource.ResourceLocation;
 import com.oceanbase.odc.service.resource.ResourceManager;
 import com.oceanbase.odc.service.resource.ResourceWithID;
 import com.oceanbase.odc.service.task.config.K8sProperties;
 import com.oceanbase.odc.service.task.exception.JobException;
+import com.oceanbase.odc.service.task.resource.Constants;
 import com.oceanbase.odc.service.task.resource.K8sPodResource;
 import com.oceanbase.odc.service.task.resource.K8sResourceContext;
 import com.oceanbase.odc.service.task.resource.manager.ResourceManageStrategy;
@@ -102,6 +104,9 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
         try {
             K8sPodResource podResource = k8sPodResource.getResource();
             podResource.setServicePort(String.valueOf(supervisorListenPort));
+            if (StringUtils.isEmpty(podResource.getPodIpAddress())) {
+                podResource.setPodIpAddress(Constants.RESOURCE_NULL_HOST);
+            }
             // create with load 1 to let resource not released
             return supervisorEndpointRepositoryWrap.save(podResource, k8sPodResource.getId(), 0);
         } catch (Throwable e) {
@@ -133,6 +138,21 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
 
         SupervisorEndpointEntity entity =
                 supervisorEndpointRepositoryWrap.getSupervisorEndpointState(endpoint, resourceId);
+
+        if (endpoint.getHost() == null || Constants.RESOURCE_NULL_HOST.equals(endpoint.getHost())) {
+            try {
+                ResourceWithID<Resource> resourceWithID = resourceManager.query(resourceId)
+                        .orElseThrow(() -> new RuntimeException("resource not found, id = " + resourceId));
+                K8sPodResource podResource = (K8sPodResource) resourceWithID.getResource();
+                if (podResource.getPodIpAddress() != null) {
+                    entity.setHost(podResource.getPodIpAddress());
+                    supervisorEndpointRepositoryWrap.updateEndpointHost(entity);
+                }
+            } catch (Exception e) {
+                log.warn("get pod ip address failed, id={}", resourceId, e);
+            }
+            return null;
+        }
         SupervisorEndpointState state = SupervisorEndpointState.fromString(entity.getStatus());
         if (state == SupervisorEndpointState.AVAILABLE) {
             return entity;
