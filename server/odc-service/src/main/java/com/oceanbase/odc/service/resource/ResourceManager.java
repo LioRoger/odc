@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import javax.transaction.Transactional;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,6 +31,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.oceanbase.odc.core.authority.util.SkipAuthorize;
 import com.oceanbase.odc.metadb.resource.ResourceEntity;
@@ -231,7 +232,7 @@ public class ResourceManager {
      * @return
      * @throws Exception
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @SkipAuthorize("odc internal usage")
     public String destroy(@NonNull ResourceID resourceID) throws Exception {
         Optional<ResourceEntity> optional = this.resourceRepository.findByResourceID(resourceID);

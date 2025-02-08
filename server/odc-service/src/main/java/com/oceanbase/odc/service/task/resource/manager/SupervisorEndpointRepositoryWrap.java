@@ -74,7 +74,7 @@ public class SupervisorEndpointRepositoryWrap {
         Optional<SupervisorEndpointEntity> supervisorEndpointEntity =
                 repository.findByHostPortAndResourceId(endpoint.getHost(), endpoint.getPort(), resourceID);
         if (!supervisorEndpointEntity.isPresent()) {
-            throw new RuntimeException("resource not found. endpoint=" + resourceID + ", resourceID =" + resourceID);
+            throw new RuntimeException("resource not found. endpoint=" + endpoint + ", resourceID =" + resourceID);
         } else {
             return supervisorEndpointEntity.get();
         }

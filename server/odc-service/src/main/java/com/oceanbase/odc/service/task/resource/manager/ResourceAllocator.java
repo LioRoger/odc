@@ -18,6 +18,7 @@ package com.oceanbase.odc.service.task.resource.manager;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -63,7 +64,12 @@ public class ResourceAllocator {
     public void allocateSupervisorAgent(TransactionManager transactionManager) {
         List<ResourceAllocateInfoEntity> resourceToAllocate = resourceAllocateInfoRepositoryWrap.collectAllocateInfo();
         for (ResourceAllocateInfoEntity resourceAllocateInfo : resourceToAllocate) {
-            transactionManager.doInTransactionWithoutResult(() -> allocate(resourceAllocateInfo));
+            try {
+                transactionManager.doInTransactionWithoutResult(() -> allocate(resourceAllocateInfo));
+            } catch (Throwable e) {
+                log.warn("allocate supervisor agent for allocate info = {} failed", resourceAllocateInfo, e);
+                resourceAllocateInfoRepositoryWrap.failedAllocateForId(resourceAllocateInfo.getTaskId());
+            }
         }
     }
 
@@ -82,8 +88,7 @@ public class ResourceAllocator {
                 log.warn("invalid state for allocate supervisor agent, current is " + resourceAllocateInfo);
             }
         } catch (Throwable e) {
-            log.warn("allocate supervisor agent for allocate info = {} failed", resourceAllocateInfo, e);
-            resourceAllocateInfoRepositoryWrap.failedAllocateForId(resourceAllocateInfo.getTaskId());
+            throw new RuntimeException(e);
         }
     }
 
@@ -136,6 +141,16 @@ public class ResourceAllocator {
         SupervisorEndpointEntity supervisorEndpoint =
                 resourceManageStrategy.detectIfResourceIsReady(allocateInfoEntity);
         if (null != supervisorEndpoint) {
+            SupervisorEndpoint endpoint = JsonUtils.fromJson(allocateInfoEntity.getEndpoint(),
+                    SupervisorEndpoint.class);
+            if (!Objects.equals(supervisorEndpoint.getEndpoint(), endpoint)) {
+                // update endpoint
+                log.info("update endpoint for resource id = {} to {} for job id = {}",
+                        allocateInfoEntity.getResourceId(), supervisorEndpoint, allocateInfoEntity.getTaskId());
+                resourceAllocateInfoRepositoryWrap.prepareResourceForJob(supervisorEndpoint.getEndpoint(),
+                        allocateInfoEntity.getResourceId(), allocateInfoEntity.getTaskId());
+                return;
+            }
             // allocate success
             log.info("resource ready with resource id = {}, allocate supervisor endpoint = {} for job id = {}",
                     allocateInfoEntity.getResourceId(), supervisorEndpoint, allocateInfoEntity.getTaskId());

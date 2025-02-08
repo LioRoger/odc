@@ -147,6 +147,7 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
                 if (podResource.getPodIpAddress() != null) {
                     entity.setHost(podResource.getPodIpAddress());
                     supervisorEndpointRepositoryWrap.updateEndpointHost(entity);
+                    return entity;
                 }
             } catch (Exception e) {
                 log.warn("get pod ip address failed, id={}", resourceId, e);
