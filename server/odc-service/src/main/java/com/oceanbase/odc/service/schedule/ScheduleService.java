@@ -42,6 +42,7 @@ import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cglib.beans.BeanMap;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.core.io.InputStreamResource;
@@ -151,6 +152,9 @@ import lombok.extern.slf4j.Slf4j;
 @Service
 @SkipAuthorize
 public class ScheduleService {
+
+    @Value("${odc.task.trigger.minimum-interval:600}")
+    private int minInterval;
     @Autowired
     private ScheduleRepository scheduleRepository;
 
@@ -237,6 +241,7 @@ public class ScheduleService {
         ScheduleChangeParams scheduleChangeParams;
         switch (parameters.getOperationType()) {
             case CREATE: {
+                validateTriggerConfig(parameters.getTriggerConfig());
                 CreateScheduleReq createScheduleReq = new CreateScheduleReq();
                 createScheduleReq.setParameters(parameters.getScheduleTaskParameters());
                 createScheduleReq.setTriggerConfig(parameters.getTriggerConfig());
@@ -274,7 +279,6 @@ public class ScheduleService {
         // create or load target schedule
         if (req.getOperationType() == OperationType.CREATE) {
             PreConditions.notNull(req.getCreateScheduleReq(), "req.createScheduleReq");
-            validateTriggerConfig(req.getCreateScheduleReq().getTriggerConfig());
             ScheduleEntity entity = new ScheduleEntity();
 
             entity.setName(req.getCreateScheduleReq().getName());
@@ -326,8 +330,9 @@ public class ScheduleService {
                         null, "Pause schedule is not allowed.");
             }
             if (req.getOperationType() == OperationType.DELETE) {
-                PreConditions.validRequestState(targetSchedule.getStatus() == ScheduleStatus.TERMINATED
-                        || targetSchedule.getStatus() == ScheduleStatus.COMPLETED, ErrorCodes.DeleteNotAllowed, null,
+                PreConditions.validRequestState((targetSchedule.getStatus() == ScheduleStatus.TERMINATED
+                        || targetSchedule.getStatus() == ScheduleStatus.COMPLETED)
+                        && !hasExecutingTask(targetSchedule.getId()), ErrorCodes.DeleteNotAllowed, null,
                         "Delete schedule is not allowed.");
             }
         }
@@ -419,10 +424,8 @@ public class ScheduleService {
                 throw new IllegalArgumentException("Invalid cron expression");
             }
             long intervalMills = nextFiveFireTimes.get(1).getTime() - nextFiveFireTimes.get(0).getTime();
-            if (intervalMills / 1000 < 10 * 60) {
-                throw new IllegalArgumentException(
-                        "The interval between weeks is too short. The minimum interval is 10 minutes.");
-            }
+            PreConditions.validArgumentState(intervalMills / 1000 > minInterval, ErrorCodes.ScheduleIntervalTooShort,
+                    new Object[] {minInterval}, null);
         }
     }
 
@@ -717,9 +720,8 @@ public class ScheduleService {
         if (status == ScheduleStatus.PAUSE) {
             return;
         }
-        int runningTask = scheduleTaskService.listTaskByJobNameAndStatus(scheduleId.toString(),
-                TaskStatus.getProcessingStatus()).size();
-        if (runningTask > 0) {
+        Optional<ScheduleTask> latestTask = getLatestTask(scheduleId);
+        if (latestTask.isPresent() && latestTask.get().getStatus().isProcessing()) {
             status = ScheduleStatus.ENABLED;
         } else {
             try {

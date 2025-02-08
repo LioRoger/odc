@@ -65,6 +65,7 @@ import com.oceanbase.odc.core.authority.util.PreAuthenticate;
 import com.oceanbase.odc.core.authority.util.SkipAuthorize;
 import com.oceanbase.odc.core.session.ConnectionSession;
 import com.oceanbase.odc.core.shared.PreConditions;
+import com.oceanbase.odc.core.shared.constant.DialectType;
 import com.oceanbase.odc.core.shared.constant.ErrorCodes;
 import com.oceanbase.odc.core.shared.constant.OrganizationType;
 import com.oceanbase.odc.core.shared.constant.ResourceRoleName;
@@ -248,6 +249,12 @@ public class DatabaseService {
     @SkipAuthorize("internal usage")
     public Database detailSkipPermissionCheck(@NonNull Long id) {
         return entityToModel(databaseRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException(ResourceType.ODC_DATABASE, "id", id)), true);
+    }
+
+    @SkipAuthorize("internal usage")
+    public Database detailSkipPermissionCheckForRead(@NonNull Long id) {
+        return entityToModelForRead(databaseRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ResourceType.ODC_DATABASE, "id", id)), true);
     }
 
@@ -522,6 +529,9 @@ public class DatabaseService {
         Optional<Organization> organizationOpt = Optional.empty();
         try {
             connection = connectionService.getForConnectionSkipPermissionCheck(dataSourceId);
+            if (connection.getDialectType() == DialectType.FILE_SYSTEM) {
+                return true;
+            }
             horizontalDataPermissionValidator.checkCurrentOrganization(connection);
             organizationOpt = organizationService.get(connection.getOrganizationId());
             Organization organization =
@@ -542,6 +552,7 @@ public class DatabaseService {
         }
     }
 
+    @SkipAuthorize("odc internal usage")
     public int updateEnvironmentIdByConnectionId(@NotNull Long environmentId, @NotNull Long connectionId) {
         return databaseRepository.setEnvironmentIdByConnectionId(environmentId, connectionId);
     }
@@ -983,6 +994,24 @@ public class DatabaseService {
             return database;
         });
     }
+
+    private Database entityToModelForRead(DatabaseEntity entity, boolean includesPermittedAction) {
+        Database model = databaseMapper.entityToModel(entity);
+        if (Objects.nonNull(entity.getProjectId())) {
+            model.setProject(projectService.detail(entity.getProjectId()));
+        }
+        // for logical database, the connection id may be null
+        if (entity.getConnectionId() != null) {
+            model.setDataSource(connectionService.getBasicWithoutPermissionCheck(entity.getConnectionId()));
+        }
+        model.setEnvironment(environmentService.detailSkipPermissionCheck(entity.getEnvironmentId()));
+        if (includesPermittedAction) {
+            model.setAuthorizedPermissionTypes(
+                    permissionHelper.getDBPermissions(Collections.singleton(entity.getId())).get(entity.getId()));
+        }
+        return model;
+    }
+
 
     private Database entityToModel(DatabaseEntity entity, boolean includesPermittedAction) {
         Database model = databaseMapper.entityToModel(entity);
