@@ -80,21 +80,22 @@ public class SupervisorEndpointRepositoryWrap {
         }
     }
 
-    public void releaseLoad(SupervisorEndpoint supervisorEndpoint, long resourceID) {
-        Optional<SupervisorEndpointEntity> optionalSupervisorEndpointEntity = repository
-                .findByHostPortAndResourceId(supervisorEndpoint.getHost(),
-                        Integer.valueOf(supervisorEndpoint.getPort()), resourceID);
-        if (!optionalSupervisorEndpointEntity.isPresent()) {
-            log.warn("update supervisor endpoint failed, endpoint={}", supervisorEndpoint);
-            return;
-        }
-        SupervisorEndpointEntity supervisorEndpointEntity = optionalSupervisorEndpointEntity.get();
-        operateLoad(supervisorEndpointEntity.getHost(),
-                supervisorEndpointEntity.getPort(), resourceID, -1);
+    public SupervisorEndpointEntity findById(long id) {
+        return repository.findByIdNative(id)
+                .orElseThrow(() -> new RuntimeException("resource not found. endpoint id=" + id));
     }
 
-    public void operateLoad(String host, int port, long resourceID, int delta) {
-        repository.addLoadByHostPortAndResourceId(host, port, resourceID, delta);
+    public void releaseLoad(long id) {
+        Optional<SupervisorEndpointEntity> optionalSupervisorEndpointEntity = repository.findByIdNative(id);
+        if (!optionalSupervisorEndpointEntity.isPresent()) {
+            log.warn("update supervisor endpoint failed, endpoint id={}", id);
+            return;
+        }
+        operateLoad(id, -1);
+    }
+
+    public void operateLoad(long id, int delta) {
+        repository.addLoadById(id, delta);
     }
 
     public List<SupervisorEndpointEntity> collectAvailableSupervisorEndpoint(String region, String group) {

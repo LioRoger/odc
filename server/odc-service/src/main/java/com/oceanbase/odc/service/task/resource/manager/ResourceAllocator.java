@@ -18,7 +18,6 @@ package com.oceanbase.odc.service.task.resource.manager;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -107,7 +106,7 @@ public class ResourceAllocator {
             log.info("allocate supervisor endpoint = {} for job id = {}", supervisorEndpoint,
                     allocateInfoEntity.getTaskId());
             resourceAllocateInfoRepositoryWrap.allocateForJob(supervisorEndpoint.getEndpoint(),
-                    supervisorEndpoint.getResourceID(), allocateInfoEntity.getTaskId());
+                    supervisorEndpoint.getId(), allocateInfoEntity.getTaskId());
         } else {
             // try allocate new resource
             SupervisorEndpointEntity endpoint = resourceManageStrategy.handleNoResourceAvailable(allocateInfoEntity);
@@ -115,10 +114,9 @@ public class ResourceAllocator {
             if (null != endpoint) {
                 // increase load to bind this task to this resource, and let resource not released
                 // Notice: if we don't bind task to allocated pod, this logic should be rewrite
-                supervisorEndpointRepositoryWrap.operateLoad(endpoint.getHost(), endpoint.getPort(),
-                        endpoint.getResourceID(), 1);
+                supervisorEndpointRepositoryWrap.operateLoad(endpoint.getId(), 1);
                 resourceAllocateInfoRepositoryWrap.prepareResourceForJob(endpoint.getEndpoint(),
-                        endpoint.getResourceID(), allocateInfoEntity.getTaskId());
+                        endpoint.getId(), allocateInfoEntity.getTaskId());
                 log.info("endpoint prepare for job id = {}, wait  resource = {} ready",
                         allocateInfoEntity.getTaskId(), endpoint);
             } else {
@@ -141,25 +139,15 @@ public class ResourceAllocator {
         SupervisorEndpointEntity supervisorEndpoint =
                 resourceManageStrategy.detectIfResourceIsReady(allocateInfoEntity);
         if (null != supervisorEndpoint) {
-            SupervisorEndpoint endpoint = JsonUtils.fromJson(allocateInfoEntity.getEndpoint(),
-                    SupervisorEndpoint.class);
-            if (!Objects.equals(supervisorEndpoint.getEndpoint(), endpoint)) {
-                // update endpoint
-                log.info("update endpoint for resource id = {} to {} for job id = {}",
-                        allocateInfoEntity.getResourceId(), supervisorEndpoint, allocateInfoEntity.getTaskId());
-                resourceAllocateInfoRepositoryWrap.prepareResourceForJob(supervisorEndpoint.getEndpoint(),
-                        allocateInfoEntity.getResourceId(), allocateInfoEntity.getTaskId());
-                return;
-            }
             // allocate success
-            log.info("resource ready with resource id = {}, allocate supervisor endpoint = {} for job id = {}",
-                    allocateInfoEntity.getResourceId(), supervisorEndpoint, allocateInfoEntity.getTaskId());
+            log.info("resource ready with endpoint id = {}, allocate supervisor endpoint = {} for job id = {}",
+                    allocateInfoEntity.getSupervisorEndpointId(), supervisorEndpoint, allocateInfoEntity.getTaskId());
             resourceAllocateInfoRepositoryWrap.allocateForJob(supervisorEndpoint.getEndpoint(),
-                    supervisorEndpoint.getResourceID(), allocateInfoEntity.getTaskId());
+                    supervisorEndpoint.getId(), allocateInfoEntity.getTaskId());
         } else {
             // wait resource ready
-            log.debug("resource not ready with resource id = {}, endpoint = {} for job id = {}, wait resource ready",
-                    allocateInfoEntity.getResourceId(), allocateInfoEntity.getEndpoint(),
+            log.debug("resource not ready with endpoint id = {}, endpoint = {} for job id = {}, wait resource ready",
+                    allocateInfoEntity.getSupervisorEndpointId(), allocateInfoEntity.getEndpoint(),
                     allocateInfoEntity.getTaskId());
         }
     }
@@ -180,7 +168,7 @@ public class ResourceAllocator {
     protected void releaseSupervisorEndPointLoad(ResourceAllocateInfoEntity allocateInfoEntity) {
         SupervisorEndpoint endpoint = JsonUtils.fromJson(allocateInfoEntity.getEndpoint(), SupervisorEndpoint.class);
         if (null != endpoint) {
-            supervisorEndpointRepositoryWrap.releaseLoad(endpoint, allocateInfoEntity.getResourceId());
+            supervisorEndpointRepositoryWrap.releaseLoad(allocateInfoEntity.getSupervisorEndpointId());
         }
     }
 
@@ -210,7 +198,7 @@ public class ResourceAllocator {
             if (remoteTaskSupervisorProxy.isSupervisorAlive(ret)
                     && resourceManageStrategy.isEndpointHaveEnoughResource(tmp, entity)) {
                 // each task means one load
-                supervisorEndpointRepositoryWrap.operateLoad(tmp.getHost(), tmp.getPort(), tmp.getResourceID(), 1);
+                supervisorEndpointRepositoryWrap.operateLoad(tmp.getId(), 1);
                 return tmp;
             }
         }
