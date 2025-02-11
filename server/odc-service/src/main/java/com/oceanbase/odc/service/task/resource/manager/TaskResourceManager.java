@@ -94,9 +94,11 @@ public class TaskResourceManager {
     }
 
     protected void detectIfResourceIsReady(SupervisorEndpointEntity entity) {
+        resourceManageStrategy.refreshSupervisorEndpoint(entity);
+
         SupervisorEndpoint endpoint = entity.getEndpoint();
         if (endpoint.getHost() == null || Constants.RESOURCE_NULL_HOST.equals(endpoint.getHost())) {
-            log.debug("supervisor not alive yet, endpoint = {}", endpoint);
+            log.info("supervisor not alive yet, endpoint = {}", entity);
             return;
         }
         if (remoteTaskSupervisorProxy.isSupervisorAlive(endpoint)) {

@@ -137,7 +137,7 @@ public class ResourceAllocator {
             return;
         }
         SupervisorEndpointEntity supervisorEndpoint =
-                resourceManageStrategy.detectIfResourceIsReady(allocateInfoEntity);
+                resourceManageStrategy.detectIfEndpointIsAvailable(allocateInfoEntity);
         if (null != supervisorEndpoint) {
             // allocate success
             log.info("resource ready with endpoint id = {}, allocate supervisor endpoint = {} for job id = {}",

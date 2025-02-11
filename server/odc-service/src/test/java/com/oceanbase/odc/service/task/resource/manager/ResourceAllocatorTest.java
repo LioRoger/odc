@@ -129,7 +129,7 @@ public class ResourceAllocatorTest {
         resourceAllocateInfoEntity.setUpdateTime(new Date(System.currentTimeMillis()));
         resourceAllocateInfoEntity.setResourceAllocateState(ResourceAllocateState.CREATING_RESOURCE.name());
         resourceAllocateInfoEntity.setResourceUsageState(ResourceUsageState.PREPARING.name());
-        Mockito.when(resourceManageStrategy.detectIfResourceIsReady(ArgumentMatchers.any()))
+        Mockito.when(resourceManageStrategy.detectIfEndpointIsAvailable(ArgumentMatchers.any()))
                 .thenReturn(supervisorEndpointEntity);
         resourceAllocator.allocate(resourceAllocateInfoEntity);
         Mockito.verify(resourceAllocateInfoRepositoryWrap, Mockito.times(1)).allocateForJob(ArgumentMatchers.any(),

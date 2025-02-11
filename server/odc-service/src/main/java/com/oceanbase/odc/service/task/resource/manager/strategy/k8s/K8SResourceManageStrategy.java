@@ -121,7 +121,7 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
      * @param resourceAllocateInfoEntity
      * @return resource endpoint if ready, else null
      */
-    public SupervisorEndpointEntity detectIfResourceIsReady(ResourceAllocateInfoEntity resourceAllocateInfoEntity) {
+    public SupervisorEndpointEntity detectIfEndpointIsAvailable(ResourceAllocateInfoEntity resourceAllocateInfoEntity) {
         if (!StringUtils.containsIgnoreCase(resourceAllocateInfoEntity.getResourceApplierName(), "K8S")) {
             return null;
         }
@@ -134,20 +134,6 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
 
         SupervisorEndpointEntity entity =
                 supervisorEndpointRepositoryWrap.findById(resourceAllocateInfoEntity.getSupervisorEndpointId());
-
-        if (entity.getHost() == null || Constants.RESOURCE_NULL_HOST.equals(entity.getHost())) {
-            try {
-                ResourceWithID<Resource> resourceWithID = resourceManager.query(entity.getResourceID())
-                        .orElseThrow(() -> new RuntimeException("resource not found, id = " + entity.getResourceID()));
-                K8sPodResource podResource = (K8sPodResource) resourceWithID.getResource();
-                if (podResource.getPodIpAddress() != null) {
-                    entity.setHost(podResource.getPodIpAddress());
-                    supervisorEndpointRepositoryWrap.updateEndpointHost(entity);
-                }
-            } catch (Exception e) {
-                log.warn("get pod ip address failed, resource id={}", entity.getResourceID(), e);
-            }
-        }
         SupervisorEndpointState state = SupervisorEndpointState.fromString(entity.getStatus());
         if (state == SupervisorEndpointState.AVAILABLE) {
             return entity;
@@ -155,6 +141,26 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
             throw new RuntimeException("allocate resource failed, entity = " + entity);
         } else {
             return null;
+        }
+    }
+
+    @Override
+    public void refreshSupervisorEndpoint(SupervisorEndpointEntity endpoint) {
+        if (endpoint.getHost() != null && !Constants.RESOURCE_NULL_HOST.equals(endpoint.getHost())) {
+            return;
+        }
+        try {
+            ResourceWithID<Resource> resourceWithID = resourceManager.query(endpoint.getResourceID())
+                    .orElseThrow(() -> new RuntimeException("resource not found, id = " + endpoint.getResourceID()));
+            K8sPodResource podResource = (K8sPodResource) resourceWithID.getResource();
+            if (podResource.getPodIpAddress() != null) {
+                endpoint.setHost(podResource.getPodIpAddress());
+                supervisorEndpointRepositoryWrap.updateEndpointHost(endpoint);
+                log.info("refresh pod ip address success, id = {}, host =z {}", endpoint.getResourceID(),
+                        podResource.getPodIpAddress());
+            }
+        } catch (Exception e) {
+            log.warn("get pod ip address failed, resource id={}", endpoint.getResourceID(), e);
         }
     }
 

@@ -60,7 +60,7 @@ public class ResourceDeAllocator {
         try {
             SupervisorEndpoint supervisorEndpoint =
                     JsonUtils.fromJson(deAllocateInfoEntity.getEndpoint(), SupervisorEndpoint.class);
-            if (null == deAllocateInfoEntity.getSupervisorEndpointId() || null == supervisorEndpoint) {
+            if (null == deAllocateInfoEntity.getSupervisorEndpointId()) {
                 log.warn("invalid state, resource id or endpoint should not be null, entity = {}",
                         deAllocateInfoEntity);
                 return;
