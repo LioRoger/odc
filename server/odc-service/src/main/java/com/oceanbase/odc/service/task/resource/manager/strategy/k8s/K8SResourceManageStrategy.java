@@ -26,7 +26,6 @@ import java.util.function.Supplier;
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.common.util.StringUtils;
 import com.oceanbase.odc.core.alarm.AlarmEventNames;
 import com.oceanbase.odc.core.alarm.AlarmUtils;
@@ -47,7 +46,6 @@ import com.oceanbase.odc.service.task.resource.K8sResourceContext;
 import com.oceanbase.odc.service.task.resource.manager.ResourceManageStrategy;
 import com.oceanbase.odc.service.task.resource.manager.SupervisorEndpointRepositoryWrap;
 import com.oceanbase.odc.service.task.supervisor.SupervisorEndpointState;
-import com.oceanbase.odc.service.task.supervisor.endpoint.SupervisorEndpoint;
 
 import cn.hutool.core.util.StrUtil;
 import lombok.extern.slf4j.Slf4j;
@@ -127,32 +125,28 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
         if (!StringUtils.containsIgnoreCase(resourceAllocateInfoEntity.getResourceApplierName(), "K8S")) {
             return null;
         }
-        long resourceId = resourceAllocateInfoEntity.getResourceId();;
-        SupervisorEndpoint endpoint =
-                JsonUtils.fromJson(resourceAllocateInfoEntity.getEndpoint(), SupervisorEndpoint.class);
-        if (null == resourceAllocateInfoEntity.getResourceId() || null == resourceAllocateInfoEntity.getEndpoint()) {
+        Long supervisorEndpointId = resourceAllocateInfoEntity.getSupervisorEndpointId();
+        if (null == supervisorEndpointId) {
             throw new RuntimeException(
-                    "for k8s mode resource allocate mode, endpoint or resource id  should not be null, entity = "
+                    "for k8s mode resource allocate mode, endpoint id should not be null, entity = "
                             + resourceAllocateInfoEntity);
         }
 
         SupervisorEndpointEntity entity =
-                supervisorEndpointRepositoryWrap.getSupervisorEndpointState(endpoint, resourceId);
+                supervisorEndpointRepositoryWrap.findById(resourceAllocateInfoEntity.getSupervisorEndpointId());
 
-        if (endpoint.getHost() == null || Constants.RESOURCE_NULL_HOST.equals(endpoint.getHost())) {
+        if (entity.getHost() == null || Constants.RESOURCE_NULL_HOST.equals(entity.getHost())) {
             try {
-                ResourceWithID<Resource> resourceWithID = resourceManager.query(resourceId)
-                        .orElseThrow(() -> new RuntimeException("resource not found, id = " + resourceId));
+                ResourceWithID<Resource> resourceWithID = resourceManager.query(entity.getResourceID())
+                        .orElseThrow(() -> new RuntimeException("resource not found, id = " + entity.getResourceID()));
                 K8sPodResource podResource = (K8sPodResource) resourceWithID.getResource();
                 if (podResource.getPodIpAddress() != null) {
                     entity.setHost(podResource.getPodIpAddress());
                     supervisorEndpointRepositoryWrap.updateEndpointHost(entity);
-                    return entity;
                 }
             } catch (Exception e) {
-                log.warn("get pod ip address failed, id={}", resourceId, e);
+                log.warn("get pod ip address failed, resource id={}", entity.getResourceID(), e);
             }
-            return null;
         }
         SupervisorEndpointState state = SupervisorEndpointState.fromString(entity.getStatus());
         if (state == SupervisorEndpointState.AVAILABLE) {

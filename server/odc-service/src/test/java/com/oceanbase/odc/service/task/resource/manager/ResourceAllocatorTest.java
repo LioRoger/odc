@@ -68,7 +68,7 @@ public class ResourceAllocatorTest {
         supervisorEndpointEntity.setHost(SystemUtils.getLocalIpAddress());
         supervisorEndpointEntity.setPort(9999);
         resourceAllocateInfoEntity = new ResourceAllocateInfoEntity();
-        resourceAllocateInfoEntity.setResourceId(1024L);
+        resourceAllocateInfoEntity.setSupervisorEndpointId(1024L);
         resourceAllocateInfoEntity.setEndpoint(JsonUtils.toJson(supervisorEndpointEntity.getEndpoint()));
         Mockito.when(remoteTaskSupervisorProxy.isSupervisorAlive(ArgumentMatchers.any())).thenReturn(true);
         Mockito.when(
@@ -120,7 +120,7 @@ public class ResourceAllocatorTest {
         resourceAllocateInfoEntity.setResourceUsageState(ResourceUsageState.PREPARING.name());
         resourceAllocator.allocate(resourceAllocateInfoEntity);
         ArgumentCaptor<SupervisorEndpoint> captor = ArgumentCaptor.forClass(SupervisorEndpoint.class);
-        Mockito.verify(supervisorEndpointRepositoryWrap).releaseLoad(captor.capture(), ArgumentMatchers.anyLong());
+        Mockito.verify(supervisorEndpointRepositoryWrap).releaseLoad(ArgumentMatchers.anyLong());
         Assert.assertEquals(captor.getValue(), supervisorEndpointEntity.getEndpoint());
     }
 

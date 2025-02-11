@@ -21,6 +21,6 @@ package com.oceanbase.odc.service.task.resource;
  */
 public class Constants {
 
-    public static final String RESOURCE_NULL_HOST = "null";
+    public static final String RESOURCE_NULL_HOST = "RESOURCE_CREATING";
 
 }

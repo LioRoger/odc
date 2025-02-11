@@ -241,7 +241,7 @@ public class ResourceManager {
         return doDestroy(resourceID);
     }
 
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @SkipAuthorize("odc internal usage")
     public String destroy(@NonNull Long id) throws Exception {
         Optional<ResourceEntity> optional = this.resourceRepository.findById(id);
