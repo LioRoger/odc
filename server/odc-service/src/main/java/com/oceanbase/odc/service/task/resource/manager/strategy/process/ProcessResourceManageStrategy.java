@@ -55,9 +55,7 @@ public class ProcessResourceManageStrategy implements ResourceManageStrategy {
     }
 
     @Override
-    public void refreshSupervisorEndpoint(SupervisorEndpointEntity endpoint) {
-        throw new RuntimeException("not support yet");
-    }
+    public void refreshSupervisorEndpoint(SupervisorEndpointEntity endpoint) {}
 
     @Override
     public boolean isEndpointHaveEnoughResource(SupervisorEndpointEntity supervisorEndpoint,

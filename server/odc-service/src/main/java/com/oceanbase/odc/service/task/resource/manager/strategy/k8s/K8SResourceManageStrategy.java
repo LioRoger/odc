@@ -146,9 +146,6 @@ public class K8SResourceManageStrategy implements ResourceManageStrategy {
 
     @Override
     public void refreshSupervisorEndpoint(SupervisorEndpointEntity endpoint) {
-        if (endpoint.getHost() != null && !Constants.RESOURCE_NULL_HOST.equals(endpoint.getHost())) {
-            return;
-        }
         try {
             ResourceWithID<Resource> resourceWithID = resourceManager.query(endpoint.getResourceID())
                     .orElseThrow(() -> new RuntimeException("resource not found, id = " + endpoint.getResourceID()));
