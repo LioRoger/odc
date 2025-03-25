@@ -17,6 +17,7 @@ package com.oceanbase.odc.service.onlineschemachange.oscfms.action.odc;
 
 import java.util.Objects;
 
+import com.oceanbase.odc.common.json.JsonUtils;
 import com.oceanbase.odc.service.onlineschemachange.fsm.Action;
 import com.oceanbase.odc.service.onlineschemachange.model.OnlineSchemaChangeParameters;
 import com.oceanbase.odc.service.onlineschemachange.model.OnlineSchemaChangeScheduleTaskParameters;
@@ -45,13 +46,19 @@ public class OdcModifyDataTaskAction implements Action<OscActionContext, OscActi
                     OscStates.MONITOR_DATA_TASK.getState());
         }
         SupervisorResponse modifyResponse = OscCommandUtil.updateTask(taskParameters.getOdcCommandURl(),
-                taskParameters.getRateLimitConfig().getRowLimit());
+            inputParameters.getRateLimitConfig().getRowLimit());
         if (null == modifyResponse || !modifyResponse.isSuccess()) {
             log.info("OdcModifyDataTaskAction: update config failed, response is {}", modifyResponse);
             return new OscActionResult(OscStates.MODIFY_DATA_TASK.getState(), null,
                     OscStates.MODIFY_DATA_TASK.getState());
         } else {
+            Long scheduleTaskId = context.getScheduleTask().getId();
             taskParameters.setRateLimitConfig(inputParameters.getRateLimitConfig());
+            int rows = context.getScheduleTaskRepository().updateTaskParameters(scheduleTaskId,
+                JsonUtils.toJson(taskParameters));
+            if (rows > 0) {
+                log.info("Update throttle completed, scheduleTaskId={}", scheduleTaskId);
+            }
             log.info("OdcModifyDataTaskAction: update config success, response is {}", modifyResponse);
             return new OscActionResult(OscStates.MODIFY_DATA_TASK.getState(), null,
                     OscStates.MONITOR_DATA_TASK.getState());
