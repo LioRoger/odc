@@ -43,6 +43,7 @@ import com.oceanbase.odc.service.resource.ResourceLocation;
 import com.oceanbase.odc.service.resource.ResourceManager;
 import com.oceanbase.odc.service.resource.ResourceWithID;
 import com.oceanbase.odc.service.resource.k8s.K8sResourceUtil;
+import com.oceanbase.odc.service.session.factory.OBConsoleDataSourceFactory;
 import com.oceanbase.odc.service.task.config.K8sProperties;
 import com.oceanbase.odc.service.task.resource.K8sPodResource;
 import com.oceanbase.tools.dbbrowser.model.DBTableColumn;
@@ -161,7 +162,7 @@ public class OdcCreateDataTaskAction implements Action<OscActionContext, OscActi
                     connectionConfig, context.getConnectionProvider().createConnectionSession(),
                     context.getTaskParameter(), oscProperties);
             configs.put("databaseUrl", dataSourceRequest.getIp() + ":" + dataSourceRequest.getPort());
-            configs.put("databaseUser", dataSourceRequest.getUserName());
+            configs.put("databaseUser", OBConsoleDataSourceFactory.getUsername(connectionConfig));
             configs.put("databasePassword", dataSourceRequest.getPassword());
             configs.put("crawlerClusterURL", dataSourceRequest.getConfigUrl());
             configs.put("crawlerClusterUser", dataSourceRequest.getDrcUserName());

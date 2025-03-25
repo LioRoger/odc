@@ -103,13 +103,14 @@ public class OdcMonitorDataTaskAction extends MonitorDataTaskActionBase {
             projectStepResult.setFullVerificationProgressPercentage(0.0);
             boolean fullMigrateDone = getAndCheckValue(dataMap, "fullMigratorDone", Boolean::valueOf);
             if (fullMigrateDone) {
-                projectStepResult.setCurrentStep(OscStepName.INCR_TRANSFER.name());
+                projectStepResult.setCurrentStep(OscStepName.TRANSFER_APP_SWITCH.name());
             } else {
                 projectStepResult.setCurrentStep(OscStepName.FULL_TRANSFER.name());
             }
             projectStepResult.setCurrentStepStatus(OmsStepStatus.RUNNING.name());
             projectStepResult.setCheckFailedTime(Collections.emptyMap());
             projectStepResult.setIncrementCheckpoint(getAndCheckValue(dataMap, "checkpoint", Long::valueOf));
+            projectStepResult.setTaskPercentage(Math.min(95.0, getAndCheckValue(dataMap, "fullMigratorProgress", Double::valueOf)));
             return projectStepResult;
         } catch (Exception e) {
             log.info("OdcMonitorDataTaskAction: supervisor response not contains all fields, response = {}",
@@ -129,7 +130,7 @@ public class OdcMonitorDataTaskAction extends MonitorDataTaskActionBase {
 
     protected boolean isMigrateTaskReady(ProjectStepResult projectStepResult) {
         // step into increment transfer and checkpoint delay less than 5 seconds
-        return OscStepName.valueOf(projectStepResult.getCurrentStep()) == OscStepName.INCR_TRANSFER &&
+        return OscStepName.valueOf(projectStepResult.getCurrentStep()) == OscStepName.TRANSFER_APP_SWITCH &&
                 (System.currentTimeMillis() / 1000 - projectStepResult.getIncrementCheckpoint() <= 5);
     }
 

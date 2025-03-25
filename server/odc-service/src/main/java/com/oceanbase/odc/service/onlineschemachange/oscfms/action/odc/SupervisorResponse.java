@@ -30,4 +30,7 @@ public class SupervisorResponse {
     private boolean isSuccess;
     private String errorMessage;
     private Map<String, String> responseData;
+
+    public SupervisorResponse() {
+    }
 }
