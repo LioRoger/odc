@@ -38,8 +38,8 @@ import com.oceanbase.odc.service.onlineschemachange.configuration.OnlineSchemaCh
 import com.oceanbase.odc.service.onlineschemachange.configuration.OnlineSchemaChangeProperties.OmsProperties;
 import com.oceanbase.odc.service.onlineschemachange.model.OnlineSchemaChangeParameters;
 import com.oceanbase.odc.service.onlineschemachange.oms.enums.OmsProjectStatusEnum;
-import com.oceanbase.odc.service.onlineschemachange.oms.enums.OmsStepName;
 import com.oceanbase.odc.service.onlineschemachange.oms.enums.OmsStepStatus;
+import com.oceanbase.odc.service.onlineschemachange.oms.enums.OscStepName;
 import com.oceanbase.odc.service.onlineschemachange.oms.openapi.OmsProjectOpenApiService;
 import com.oceanbase.odc.service.onlineschemachange.oms.response.OmsProjectProgressResponse;
 import com.oceanbase.odc.service.onlineschemachange.oms.response.OmsProjectStepVO;
@@ -47,7 +47,7 @@ import com.oceanbase.odc.service.onlineschemachange.oscfms.OscActionContext;
 import com.oceanbase.odc.service.onlineschemachange.oscfms.OscActionResult;
 import com.oceanbase.odc.service.onlineschemachange.oscfms.OscTestUtil;
 import com.oceanbase.odc.service.onlineschemachange.oscfms.action.ConnectionProvider;
-import com.oceanbase.odc.service.onlineschemachange.oscfms.action.oms.ProjectStepResultChecker.ProjectStepResult;
+import com.oceanbase.odc.service.onlineschemachange.oscfms.action.ProjectStepResult;
 import com.oceanbase.odc.service.onlineschemachange.oscfms.state.OscStates;
 import com.oceanbase.odc.service.onlineschemachange.rename.DefaultRenameTableInvoker;
 import com.oceanbase.odc.service.onlineschemachange.rename.LockTableSupportDecider;
@@ -207,19 +207,19 @@ public class OmsSwapTableActionTest {
 
     private List<OmsProjectStepVO> getProjectSteps() {
         OmsProjectStepVO fullStep = new OmsProjectStepVO();
-        fullStep.setName(OmsStepName.FULL_TRANSFER);
+        fullStep.setName(OscStepName.FULL_TRANSFER);
         fullStep.setProgress(100);
         fullStep.setStatus(OmsStepStatus.FINISHED);
         OmsProjectStepVO incrStep = new OmsProjectStepVO();
-        incrStep.setName(OmsStepName.INCR_TRANSFER);
+        incrStep.setName(OscStepName.INCR_TRANSFER);
         incrStep.setProgress(100);
         incrStep.setStatus(OmsStepStatus.FINISHED);
         OmsProjectStepVO preCheck = new OmsProjectStepVO();
-        preCheck.setName(OmsStepName.TRANSFER_PRECHECK);
+        preCheck.setName(OscStepName.TRANSFER_PRECHECK);
         preCheck.setProgress(100);
         preCheck.setStatus(OmsStepStatus.FINISHED);
         OmsProjectStepVO incrLogPull = new OmsProjectStepVO();
-        incrLogPull.setName(OmsStepName.TRANSFER_INCR_LOG_PULL);
+        incrLogPull.setName(OscStepName.TRANSFER_INCR_LOG_PULL);
         incrLogPull.setProgress(100);
         incrLogPull.setStatus(OmsStepStatus.FINISHED);
         return Arrays.asList(incrLogPull, preCheck, fullStep, incrStep);
