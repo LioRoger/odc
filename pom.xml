@@ -957,6 +957,11 @@
                 <scope>import</scope>
             </dependency>
             <dependency>
+                <groupId>com.azure</groupId>
+                <artifactId>azure-storage-blob</artifactId>
+                <version>12.29.1</version>
+            </dependency>
+            <dependency>
                 <groupId>com.oceanbase</groupId>
                 <artifactId>apsara-audit-spring-boot-starter</artifactId>
                 <version>${apsara-audit-starter.version}</version>
