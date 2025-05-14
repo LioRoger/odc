@@ -325,11 +325,9 @@ public class CloudObjectStorageClient implements ObjectStorageClient {
             String location = publicEndpointCloudObjectStorage.getBucketLocation(bucketName);
             log.info("location={},region={},cloudProvider={}", location, region,
                     objectStorageConfiguration.getCloudProvider());
-            if (StringUtils.isNotEmpty(location)) {
-                Verify.verify(StringUtils.equals(region, location) || StringUtils.endsWith(location, region),
-                        "object storage bucket region does not match location, location=" + location + ", region="
-                                + region);
-            }
+            Verify.verify(StringUtils.equals(region, location) || StringUtils.endsWith(location, region),
+                    "object storage bucket region does not match location, location=" + location + ", region="
+                            + region);
         }
     }
 

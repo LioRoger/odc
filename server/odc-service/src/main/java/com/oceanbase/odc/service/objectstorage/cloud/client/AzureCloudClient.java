@@ -85,9 +85,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AzureCloudClient implements CloudClient {
     private final BlobServiceClient blobServiceClient;
+    private final String region;
 
-    public AzureCloudClient(BlobServiceClient blobServiceClient) {
+    public AzureCloudClient(BlobServiceClient blobServiceClient, String region) {
         this.blobServiceClient = blobServiceClient;
+        this.region = region;
     }
 
     @Override
@@ -100,7 +102,7 @@ public class AzureCloudClient implements CloudClient {
     // so we return null as we don't care about the location
     @Override
     public String getBucketLocation(String bucketName) throws CloudException {
-        return null;
+        return region;
     }
 
     @Override
