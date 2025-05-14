@@ -463,9 +463,6 @@ public class AzureCloudClient implements CloudClient {
 
     protected BlobClient getBlobClient(String bucketName, String key) {
         BlobContainerClient blobContainerClient = blobServiceClient.getBlobContainerClient(bucketName);
-        if (!blobContainerClient.exists()) {
-            throw new IllegalStateException(bucketName + " not exist");
-        }
         return blobContainerClient.getBlobClient(key);
     }
 
